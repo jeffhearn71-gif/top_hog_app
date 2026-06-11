@@ -1,0 +1,1 @@
+enum AchievementType { streakyBacon, goldenOink }
