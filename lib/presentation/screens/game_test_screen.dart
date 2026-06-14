@@ -7,6 +7,7 @@ import '../../domain/models/match_state.dart';
 import '../../domain/models/player_in_match.dart';
 import '../../domain/models/set_state.dart';
 import '../../domain/models/turn_state.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class GameTestScreen extends StatefulWidget {
   const GameTestScreen({super.key});
@@ -22,6 +23,11 @@ class _GameTestScreenState extends State<GameTestScreen> {
   int? _lastD6B;
   int? _lastD20;
 
+  List<String> _feedbackQueue = [];
+
+  final AudioPlayer _rollPlayer = AudioPlayer();
+  final AudioPlayer _eventPlayer = AudioPlayer();
+
   @override
   void initState() {
     super.initState();
@@ -29,6 +35,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
     final players = [
       PlayerInMatch(trueId: '1', alias: 'Jeff', playOrder: 1),
       PlayerInMatch(trueId: '2', alias: 'Sam', playOrder: 2),
+      PlayerInMatch(trueId: '3', alias: 'Alex', playOrder: 3),
+      PlayerInMatch(trueId: '4', alias: 'Chris', playOrder: 4),
     ];
 
     final matchState = MatchState(
@@ -56,13 +64,13 @@ class _GameTestScreenState extends State<GameTestScreen> {
   String _getD20Instruction(TurnState turn) {
     switch (turn.pendingD20Type) {
       case PendingD20Type.positiveSave:
-        return 'Make a saving throw: If you roll a 4 or 11 you BUST';
+        return 'SAVING THROW: If you roll a 1, 4 or 11 you BUST';
 
       case PendingD20Type.negativeSave:
-        return 'Make a saving throw: Roll a 4 or 11 to SURVIVE';
+        return 'SAVING THROW: Roll a 4, 11 or 20 to SURVIVE';
 
       case PendingD20Type.winningChance:
-        return 'Winning Chance! Roll a 20 to win a Rasher!';
+        return 'Roll a 20 to win a RASHER!';
 
       case PendingD20Type.none:
         return '';
@@ -71,6 +79,125 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
   String _getD6Asset(int value) {
     return 'assets/icons/d6_$value.svg';
+  }
+
+  Future<void> _playFeedbackQueue() async {
+    if (_feedbackQueue.isEmpty) return;
+
+    setState(() {
+      _feedbackQueue = [_feedbackQueue.first];
+    });
+  }
+
+  String _friendlyOutcomeText(String outcomeLabel) {
+    final lower = outcomeLabel.toLowerCase();
+
+    // ✅ STANDARD POINT
+    if (lower.contains('standard')) {
+      return '+1 POINT';
+    }
+
+    // ✅ TROTTER CASES (progression logic)
+    if (lower.contains('trotter')) {
+      // ✅ Winning chance (6,6)
+      if (lower.contains('winning')) {
+        return '+4 POINTS (+1 Point, +3 Trotters)';
+      }
+
+      // ✅ Positive save (1,1 usually)
+      if (lower.contains('positive')) {
+        return '+2 POINTS (+1 Point, +1 Trotter)';
+      }
+
+      // ✅ We still need to infer remaining tiers
+      // Since engine labels are not granular, we use pattern length:
+
+      // crude but safe mapping based on repetition wording
+      if (lower.contains('3')) {
+        return '+3 POINTS (+1 Point, +2 Trotters)';
+      }
+
+      if (lower.contains('2')) {
+        return '+2 POINTS (+1 Point, +1 Trotter)';
+      }
+
+      // fallback (mid-tier)
+      return '+3 POINTS (+1 Point, +2 Trotters)';
+    }
+
+    // ✅ Outcomes
+    if (lower.contains('bust')) {
+      return 'BUST!';
+    }
+
+    if (lower.contains('saved')) {
+      return 'SAVED!';
+    }
+
+    if (lower.contains('rasher')) {
+      return 'RASHER WON!';
+    }
+
+    if (lower.contains('glory')) {
+      return 'CHANCE FOR GLORY!';
+    }
+
+    if (lower.contains('cigar')) {
+      return 'CLOSE....BUT NO CIGAR!';
+    }
+
+    return outcomeLabel.toUpperCase();
+  }
+
+  Color _getFeedbackColor(String message) {
+    final lower = message.toLowerCase();
+
+    // ✅ Glory (highest priority)
+    if (lower.contains('glory') || lower.contains('rasher')) {
+      return Colors.amber.shade700;
+    }
+
+    // ✅ Positive outcomes
+    if (lower.contains('saved') || lower.contains('+')) {
+      return Colors.green.shade700;
+    }
+
+    // ✅ Negative outcomes
+    if (lower.contains('bust') || lower.contains('cigar')) {
+      return Colors.red.shade700;
+    }
+
+    // ✅ Instructions (saving throw)
+    if (lower.contains('saving throw')) {
+      return Colors.purple.shade700;
+    }
+
+    // ✅ Default fallback
+    return Colors.black;
+  }
+
+  Future<void> _playRollSound(String fileName) async {
+    try {
+      await _rollPlayer.stop();
+      await _rollPlayer.play(AssetSource('sounds/$fileName'));
+    } catch (e) {
+      debugPrint('Roll sound error: $e');
+    }
+  }
+
+  Future<void> _playEventSound(String fileName) async {
+    try {
+      await _eventPlayer.stop();
+      await _eventPlayer.play(AssetSource('sounds/$fileName'));
+    } catch (e) {
+      debugPrint('Event sound error: $e');
+    }
+  }
+
+  void _playGameWinIfNeeded() {
+    if (controller.state.isGameComplete) {
+      _playEventSound('win_game.mp3');
+    }
   }
 
   @override
@@ -85,7 +212,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
         child: Column(
           children: [
             const Text(
-              'The Pig Sty',
+              'The Pig Pen',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
 
@@ -104,16 +231,22 @@ class _GameTestScreenState extends State<GameTestScreen> {
                 final rashers = player?.rashersWon ?? 0;
                 final name = player?.alias ?? '---';
 
+                // ✅ Show active player's live score, everyone else's banked score
+                final displayScore = !playerExists
+                    ? 0
+                    : (turn != null && player!.trueId == turn.playerId)
+                    ? turn.liveScore
+                    : player!.setBankedScore;
+
                 return Container(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  margin: const EdgeInsets.symmetric(vertical: 2),
                   padding: const EdgeInsets.symmetric(
-                    vertical: 6,
+                    vertical: 4,
                     horizontal: 8,
                   ),
-
                   decoration: BoxDecoration(
                     color: isActivePlayer
-                        ? Colors.yellow.shade100
+                        ? Colors.amber.withValues(alpha: 0.25)
                         : Colors.transparent,
                     border: Border.all(
                       color: isActivePlayer
@@ -124,15 +257,32 @@ class _GameTestScreenState extends State<GameTestScreen> {
                   ),
                   child: Row(
                     children: [
-                      // ✅ Player name
+                      // ✅ Player name + score
                       SizedBox(
-                        width: 60,
-                        child: Text(
-                          name,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: playerExists ? Colors.black : Colors.grey,
-                          ),
+                        width: 100,
+                        child: Row(
+                          children: [
+                            Text(
+                              name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: playerExists
+                                    ? Colors.black
+                                    : Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '($displayScore)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: displayScore > 0
+                                    ? Colors.black
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 
@@ -150,7 +300,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 children: [
                                   SvgPicture.asset(
                                     rankAssets[slotIndex],
-                                    height: 28,
+                                    height: 26,
                                     colorFilter: achieved
                                         ? null
                                         : const ColorFilter.mode(
@@ -159,14 +309,14 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                           ),
                                   ),
 
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 1),
 
                                   // ✅ Show label ONLY if achieved
                                   if (achieved)
                                     Text(
                                       rankLabels[slotIndex],
                                       style: const TextStyle(
-                                        fontSize: 10,
+                                        fontSize: 9,
                                         fontWeight:
                                             FontWeight.bold, // ✅ stronger
                                       ),
@@ -189,12 +339,12 @@ class _GameTestScreenState extends State<GameTestScreen> {
             Expanded(
               child: GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.symmetric(vertical: 2),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 5,
                   mainAxisSpacing: 4,
                   crossAxisSpacing: 4,
-                  childAspectRatio: 1.2,
+                  childAspectRatio: 1.3,
                 ),
                 itemCount: 20,
                 itemBuilder: (context, index) {
@@ -204,11 +354,11 @@ class _GameTestScreenState extends State<GameTestScreen> {
                   final isFilled = index < score;
                   final isBanked = index < banked;
 
-                  // ✅ Not reached yet (very faint, keep original image detail)
+                  // ✅ Not reached yet (very faint pig)
                   if (!isFilled) {
                     return Center(
                       child: Opacity(
-                        opacity: 0.15, // ✅ very washed out
+                        opacity: 0.15,
                         child: SvgPicture.asset(
                           'assets/icons/pig.svg',
                           width: 76,
@@ -218,18 +368,16 @@ class _GameTestScreenState extends State<GameTestScreen> {
                     );
                   }
 
-                  // ✅ Banked (full strength)
+                  // ✅ Banked (bordered)
                   if (isBanked) {
                     return Center(
                       child: Container(
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: Colors.green.shade700, // ✅ strong indicator
+                            color: Colors.green.shade700,
                             width: 3,
                           ),
-                          borderRadius: BorderRadius.circular(
-                            12,
-                          ), // ✅ soften edges
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: SvgPicture.asset(
                           'assets/icons/pig.svg',
@@ -240,7 +388,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                     );
                   }
 
-                  // ✅ Current turn
+                  // ✅ Current turn (normal pig)
                   return Center(
                     child: SvgPicture.asset(
                       'assets/icons/pig.svg',
@@ -252,10 +400,26 @@ class _GameTestScreenState extends State<GameTestScreen> {
               ),
             ),
 
+            // ✅ Feedback Text
+            if (_feedbackQueue.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  _feedbackQueue.first,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: _getFeedbackColor(_feedbackQueue.first),
+                  ),
+
+                  textAlign: TextAlign.center,
+                ),
+              ),
+
             // ✅ Dice Display Area
             if (_lastD6A != null || _lastD20 != null)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -307,16 +471,21 @@ class _GameTestScreenState extends State<GameTestScreen> {
             // ✅ D20 Instruction Text
             if (turn != null && turn.pendingD20Type != PendingD20Type.none)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  _getD20Instruction(turn),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: SizedBox(
+                  height: 28, // ✅ fixes vertical size
+                  child: Center(
+                    child: Text(
+                      _getD20Instruction(turn),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-
-                  textAlign: TextAlign.center,
                 ),
               ),
 
@@ -334,16 +503,132 @@ class _GameTestScreenState extends State<GameTestScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     elevation: 10,
                   ),
+
                   onPressed: (phase == GamePhase.awaitingPlayerAction)
-                      ? () {
+                      ? () async {
+                          _playRollSound('dice_roll.mp3');
+                          final actingPlayer = controller.currentPlayer;
+                          final rashersBefore = actingPlayer.rashersWon;
+                          final streaksBefore = actingPlayer.streakyBaconCount;
+
                           setState(() {
-                            final result = controller.roll2d6();
+                            _lastD6A = null;
+                            _lastD6B = null;
+                            _lastD20 = null;
+                            _feedbackQueue = [];
+                          });
+
+                          await Future.delayed(
+                            const Duration(milliseconds: 1000),
+                          );
+
+                          final result = controller.roll2d6();
+
+                          setState(() {
                             _lastD6A = result.first;
                             _lastD6B = result.second;
-                            _lastD20 = null; // clear previous D20 until needed
+
+                            final updatedTurn = controller.state.currentTurn;
+                            final rashersAfter = actingPlayer.rashersWon;
+                            final streaksAfter = actingPlayer.streakyBaconCount;
+                            final wonRasherThisRoll =
+                                rashersAfter > rashersBefore;
+
+                            List<String> messages = [];
+
+                            // ✅ Direct rasher win by ordinary scoring
+                            if (wonRasherThisRoll) {
+                              final safeLastOutcome =
+                                  (updatedTurn != null &&
+                                      updatedTurn.rollHistory.isNotEmpty)
+                                  ? updatedTurn.rollHistory.last.outcomeLabel
+                                  : '';
+
+                              final outcomeLower = safeLastOutcome
+                                  .toLowerCase();
+
+                              if (safeLastOutcome.isNotEmpty &&
+                                  !outcomeLower.contains('save') &&
+                                  !outcomeLower.contains('saving') &&
+                                  !outcomeLower.contains('winning')) {
+                                final friendly = _friendlyOutcomeText(
+                                  safeLastOutcome,
+                                );
+                                messages.add(friendly);
+
+                                if (friendly.startsWith('+1 POINT')) {
+                                  _playEventSound('score_basic.mp3');
+                                } else if (friendly.startsWith('+2') ||
+                                    friendly.startsWith('+3') ||
+                                    friendly.startsWith('+4')) {
+                                  _playEventSound('score_trotter.mp3');
+                                } else if (friendly == 'BUST!') {
+                                  _playEventSound('bust.mp3');
+                                }
+                              }
+
+                              messages.add('RASHER WON!');
+
+                              if (streaksAfter > streaksBefore) {
+                                _eventPlayer.stop();
+                                _playEventSound('streak_build.mp3');
+                              } else {
+                                _eventPlayer.stop();
+                                _playEventSound('win_rasher.mp3');
+                              }
+                            }
+                            // ✅ Winning chance triggered
+                            else if (updatedTurn != null &&
+                                updatedTurn.pendingD20Type ==
+                                    PendingD20Type.winningChance) {
+                              messages.add('CHANCE FOR GLORY!');
+                              _playEventSound('tension_loop.mp3');
+                            }
+                            // ✅ Normal save triggered
+                            else if (updatedTurn != null &&
+                                updatedTurn.pendingD20Type !=
+                                    PendingD20Type.none) {
+                              messages.add('MAKE A SAVING THROW');
+                              _playEventSound('saving_throw.mp3');
+                            }
+                            // ✅ Standard scoring outcome
+                            else {
+                              final safeLastOutcome =
+                                  (updatedTurn != null &&
+                                      updatedTurn.rollHistory.isNotEmpty)
+                                  ? updatedTurn.rollHistory.last.outcomeLabel
+                                  : '';
+
+                              final outcomeLower = safeLastOutcome
+                                  .toLowerCase();
+
+                              if (safeLastOutcome.isNotEmpty &&
+                                  !outcomeLower.contains('save') &&
+                                  !outcomeLower.contains('saving') &&
+                                  !outcomeLower.contains('winning')) {
+                                final friendly = _friendlyOutcomeText(
+                                  safeLastOutcome,
+                                );
+
+                                messages.add(friendly);
+
+                                if (friendly.startsWith('+1 POINT')) {
+                                  _playEventSound('score_basic.mp3');
+                                } else if (friendly.startsWith('+2') ||
+                                    friendly.startsWith('+3') ||
+                                    friendly.startsWith('+4')) {
+                                  _playEventSound('score_trotter.mp3');
+                                }
+                              }
+                            }
+
+                            _feedbackQueue = messages;
+                            _playGameWinIfNeeded();
+                            _playFeedbackQueue();
                           });
                         }
                       : null,
+
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -383,10 +668,120 @@ class _GameTestScreenState extends State<GameTestScreen> {
                       (turn != null &&
                           turn.pendingD20Type != PendingD20Type.none &&
                           phase == GamePhase.awaitingD20)
-                      ? () {
+                      ? () async {
+                          _playRollSound('d20_roll.mp3');
+                          final pendingTypeBeforeRoll = turn.pendingD20Type;
+                          final actingPlayer = controller.currentPlayer;
+                          final rashersBefore = actingPlayer.rashersWon;
+                          final streaksBefore = actingPlayer.streakyBaconCount;
+
+                          await Future.delayed(
+                            const Duration(milliseconds: 1000),
+                          );
+
+                          final d20 = controller.rollD20();
+
                           setState(() {
-                            final d20 = controller.rollD20();
                             _lastD20 = d20;
+
+                            final rashersAfter = actingPlayer.rashersWon;
+                            final streaksAfter = actingPlayer.streakyBaconCount;
+                            final wonRasherThisRoll =
+                                rashersAfter > rashersBefore;
+
+                            List<String> messages = [];
+
+                            // ✅ First: the D20-result-specific message + sound
+                            switch (pendingTypeBeforeRoll) {
+                              case PendingD20Type.negativeSave:
+                                final survived =
+                                    (d20 == 4 || d20 == 11 || d20 == 20);
+                                messages.add(survived ? 'SAVED!' : 'BUST!');
+                                _playEventSound(
+                                  survived ? 'save_pass.mp3' : 'save_fail.mp3',
+                                );
+                                break;
+
+                              case PendingD20Type.positiveSave:
+                                final busted =
+                                    (d20 == 1 || d20 == 4 || d20 == 11);
+                                messages.add(busted ? 'BUST!' : 'SAVED!');
+                                _playEventSound(
+                                  busted ? 'save_fail.mp3' : 'save_pass.mp3',
+                                );
+                                break;
+
+                              case PendingD20Type.winningChance:
+                                final wonGlory = (d20 == 20);
+
+                                messages.add(
+                                  wonGlory
+                                      ? 'RASHER WON!'
+                                      : 'CLOSE....BUT NO CIGAR!',
+                                );
+
+                                if (wonGlory) {
+                                  // ✅ STOP tension loop and play win sound
+                                  _eventPlayer.stop();
+                                  _playEventSound('win_rasher.mp3');
+                                } else {
+                                  // ✅ interrupt tension loop with close call
+                                  _eventPlayer.stop();
+                                  _playEventSound('close_call.mp3');
+                                }
+                                break;
+
+                              case PendingD20Type.none:
+                                break;
+                            }
+
+                            // ✅ Second: the scoring outcome, if player-facing
+                            final updatedTurn = controller.state.currentTurn;
+                            final safeLastOutcome =
+                                (updatedTurn != null &&
+                                    updatedTurn.rollHistory.isNotEmpty)
+                                ? updatedTurn.rollHistory.last.outcomeLabel
+                                : '';
+
+                            final outcomeLower = safeLastOutcome.toLowerCase();
+
+                            if (safeLastOutcome.isNotEmpty &&
+                                !outcomeLower.contains('save') &&
+                                !outcomeLower.contains('saving') &&
+                                !outcomeLower.contains('winning')) {
+                              final friendly = _friendlyOutcomeText(
+                                safeLastOutcome,
+                              );
+                              messages.add(friendly);
+
+                              if (friendly.startsWith('+1 POINT')) {
+                                _playEventSound('score_basic.mp3');
+                              } else if (friendly.startsWith('+2') ||
+                                  friendly.startsWith('+3') ||
+                                  friendly.startsWith('+4')) {
+                                _playEventSound('score_trotter.mp3');
+                              } else if (friendly == 'BUST!') {
+                                _playEventSound('bust.mp3');
+                              }
+                            }
+
+                            // ✅ Third: if this D20 resolution awarded the rasher, always show it last
+
+                            if (wonRasherThisRoll) {
+                              messages.add('RASHER WON!');
+
+                              if (streaksAfter > streaksBefore) {
+                                _eventPlayer.stop();
+                                _playEventSound('streak_build.mp3');
+                              } else {
+                                _eventPlayer.stop();
+                                _playEventSound('win_rasher.mp3');
+                              }
+                            }
+
+                            _feedbackQueue = messages;
+                            _playGameWinIfNeeded();
+                            _playFeedbackQueue();
                           });
                         }
                       : null,
@@ -432,6 +827,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                           turn.pendingD20Type == PendingD20Type.none &&
                           phase == GamePhase.awaitingPlayerAction)
                       ? () {
+                          _playEventSound('waddle_out.mp3');
                           setState(() {
                             controller.waddleOut();
                           });
@@ -467,8 +863,25 @@ class _GameTestScreenState extends State<GameTestScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    'Game Complete! Winner IDs: ${controller.state.winnerIds.join(', ')}',
-                    style: const TextStyle(fontSize: 18),
+                    (() {
+                      final winnerNames = controller.state.winnerIds.map((id) {
+                        final player = controller.state.players.firstWhere(
+                          (p) => p.trueId == id,
+                        );
+                        return player.alias;
+                      }).toList();
+
+                      if (winnerNames.length == 1) {
+                        return '${winnerNames.first} is Top Hog!';
+                      }
+
+                      return '${winnerNames.join(' & ')} are Top Hogs!';
+                    })(),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),

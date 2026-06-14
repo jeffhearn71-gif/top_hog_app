@@ -19,6 +19,7 @@ class RollResolution {
 
   int get totalPoints => normalPoints + trotterBonus;
 }
+
 class TopHogRuleEngine {
   RollResolution resolve2d6(int first, int second) {
     final key = '$first.$second';
@@ -108,13 +109,9 @@ class TopHogRuleEngine {
 
   // ✅ Saving throws
 
-  bool survivesPositiveSave(int d20) {
-    return d20 != 4 && d20 != 11;
-  }
+  bool survivesNegativeSave(int d20) => d20 == 4 || d20 == 11 || d20 == 20;
 
-  bool survivesNegativeSave(int d20) {
-    return d20 == 4 || d20 == 11;
-  }
+  bool survivesPositiveSave(int d20) => d20 != 1 && d20 != 4 && d20 != 11;
 
   bool winsOnWinningChance(int d20) {
     return d20 == 20;

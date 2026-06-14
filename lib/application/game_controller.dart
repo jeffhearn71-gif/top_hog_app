@@ -46,6 +46,11 @@ class GameController extends ChangeNotifier {
 
     handle2d6Result(first, second);
 
+    final player = state.players[state.activePlayerIndex];
+    if (state.currentTurn != null) {
+      player.progressThisSet = state.currentTurn!.liveScore;
+    }
+
     return (first: first, second: second);
   }
 
@@ -230,6 +235,11 @@ class GameController extends ChangeNotifier {
 
     player.rashersWon += 1;
     player.hasWonCurrentSet = true;
+
+    for (final p in state.players) {
+      p.progressThisSet = 0;
+    }
+
     player.totalTrotterBonusPoints += turn.trotterBonusThisTurn;
 
     state.currentSet.setWinners.add(playerId);
@@ -245,7 +255,14 @@ class GameController extends ChangeNotifier {
       state.currentSet.closingRoundNumber = state.currentSet.roundNumber;
     }
 
-    _finishTurn();
+    // ✅ If first round, allow everyone one turn
+    if (state.currentSet.roundNumber == 1) {
+      _finishTurn();
+    } else {
+      // ✅ Otherwise END THE SET immediately
+      state.currentTurn = null;
+      endSet();
+    }
   }
 
   /// Start the next set (all set scores reset to 0).

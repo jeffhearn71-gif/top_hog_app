@@ -6,7 +6,8 @@ class PlayerInMatch {
 
   // Rashers (sets)
   int rashersWon;
-
+  int progressThisSet = 0;
+  
   // Current set progress
   int setBankedScore;
   bool hasWonCurrentSet;
