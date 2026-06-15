@@ -33,7 +33,7 @@ class _SetupScreenState extends State<SetupScreen> {
   void _startGame() {
     final players = List.generate(playerCount, (index) {
       return PlayerInMatch(
-        trueId: '${index + 1}',
+        trueId: 'local_${DateTime.now().millisecondsSinceEpoch}_$index',
         alias: controllers[index].text.trim().isEmpty
             ? defaultNames[index]
             : controllers[index].text.trim(),

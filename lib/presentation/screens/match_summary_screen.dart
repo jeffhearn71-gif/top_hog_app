@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../domain/models/player_in_match.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class MatchSummaryScreen extends StatelessWidget {
   final List<PlayerInMatch> players;
@@ -9,6 +10,21 @@ class MatchSummaryScreen extends StatelessWidget {
   String _getRankName(int rashers) {
     const ranks = ['Oinker', 'Piglet', 'Porker', 'Boar', 'Hog', 'Top Hog'];
     return ranks[rashers.clamp(0, 5)];
+  }
+
+  String _getRankAsset(int rashers) {
+    final index = rashers.clamp(0, 5);
+
+    const assets = [
+      'assets/icons/rank0_oinker.svg',
+      'assets/icons/rank1_piglet.svg',
+      'assets/icons/rank2_porker.svg',
+      'assets/icons/rank3_boar.svg',
+      'assets/icons/rank4_hog.svg',
+      'assets/icons/rank5_top_hog.svg',
+    ];
+
+    return assets[index];
   }
 
   String _getMedal(int index) {
@@ -51,35 +67,120 @@ class MatchSummaryScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${_getMedal(index)} ${p.alias} (${_getRankName(p.rashersWon)})',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        _getMedal(index),
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                      const SizedBox(width: 6),
+
+                      SvgPicture.asset(_getRankAsset(p.rashersWon), height: 22),
+
+                      const SizedBox(width: 6),
+
+                      Text(
+                        '${p.alias} (${_getRankName(p.rashersWon)})',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: 6),
 
-                  Text('🥓 Rashers: ${p.rashersWon}'),
-                  Text('🎯 +1 Points: ${p.basicPointsScored}'),
-                  Text('🐾 Trotter Points: ${p.totalTrotterBonusPoints}'),
-                  Text(
-                    '🎲 Saves: ${p.savesPassed} passed / ${p.savesFailed} failed',
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      children: [
+                        const TextSpan(text: '🥓 Rashers: '),
+                        TextSpan(
+                          text: '${p.rashersWon}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
-                  Text(
-                    '✨ Chance for Glory: ${p.gloryWins} won / ${p.gloryFails} missed',
+
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      children: [
+                        const TextSpan(text: '🎯 +1 Points: '),
+                        TextSpan(
+                          text: '${p.basicPointsScored}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
-                  Text('🏆 Streaky Bacon: ${p.streakyBaconCount}'),
-                  Text(
-                    '🐽 Golden Oink: ${p.goldenOink ? "✅ YES!" : "❌"}',
-                    style: TextStyle(
-                      fontWeight: p.goldenOink
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      color: p.goldenOink
-                          ? Colors.purple.shade700
-                          : Colors.black,
+
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      children: [
+                        const TextSpan(text: '🐾 Trotter Points: '),
+                        TextSpan(
+                          text: '${p.totalTrotterBonusPoints}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      children: [
+                        const TextSpan(text: '🎲 Saving Throws Won: '),
+                        TextSpan(
+                          text:
+                              '${p.savesPassed} of ${p.savesPassed + p.savesFailed}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      children: [
+                        const TextSpan(text: '✨ Chances for Glory Won: '),
+                        TextSpan(
+                          text:
+                              '${p.gloryWins} of ${p.gloryWins + p.gloryFails}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      children: [
+                        const TextSpan(text: '🏆 Streaky Bacon: '),
+                        TextSpan(
+                          text: '${p.streakyBaconCount}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      children: [
+                        const TextSpan(text: '🐽 Golden Oink: '),
+                        TextSpan(
+                          text: p.goldenOink ? '✅' : '❌',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
                   ),
                 ],

@@ -855,21 +855,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
               ],
             ),
 
-            const SizedBox(height: 12), // ✅ spacing
+            const SizedBox(height: 24), // ✅ spacing
 
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  controller.state.isGameComplete = true;
-
-                  controller.state.winnerIds = [
-                    controller.state.players.first.trueId,
-                  ];
-                });
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('DEV: End Game'),
-            ),
           ],
         ),
       ),
