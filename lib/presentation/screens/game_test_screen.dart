@@ -3,14 +3,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../application/game_controller.dart';
 import '../../domain/enums/game_phase.dart';
 import '../../domain/enums/pending_d20_type.dart';
-import '../../domain/models/match_state.dart';
-import '../../domain/models/player_in_match.dart';
-import '../../domain/models/set_state.dart';
 import '../../domain/models/turn_state.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'match_summary_screen.dart';
 
 class GameTestScreen extends StatefulWidget {
-  const GameTestScreen({super.key});
+  final GameController controller;
+
+  const GameTestScreen({super.key, required this.controller});
 
   @override
   State<GameTestScreen> createState() => _GameTestScreenState();
@@ -18,6 +18,13 @@ class GameTestScreen extends StatefulWidget {
 
 class _GameTestScreenState extends State<GameTestScreen> {
   late final GameController controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    controller = widget.controller;
+  }
 
   int? _lastD6A;
   int? _lastD6B;
@@ -27,28 +34,6 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
   final AudioPlayer _rollPlayer = AudioPlayer();
   final AudioPlayer _eventPlayer = AudioPlayer();
-
-  @override
-  void initState() {
-    super.initState();
-
-    final players = [
-      PlayerInMatch(trueId: '1', alias: 'Jeff', playOrder: 1),
-      PlayerInMatch(trueId: '2', alias: 'Sam', playOrder: 2),
-      PlayerInMatch(trueId: '3', alias: 'Alex', playOrder: 3),
-      PlayerInMatch(trueId: '4', alias: 'Chris', playOrder: 4),
-    ];
-
-    final matchState = MatchState(
-      players: players,
-      activePlayerIndex: 0,
-      phase: GamePhase.startTurn,
-      currentSet: SetState(setNumber: 1),
-    );
-
-    controller = GameController(state: matchState);
-    controller.startTurn();
-  }
 
   final rankAssets = [
     'assets/icons/rank0_oinker.svg',
@@ -200,8 +185,23 @@ class _GameTestScreenState extends State<GameTestScreen> {
     }
   }
 
+  void _checkForGameEnd() {
+    if (controller.state.isGameComplete) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                MatchSummaryScreen(players: controller.state.players),
+          ),
+        );
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    _checkForGameEnd();
     final turn = controller.state.currentTurn;
     final phase = controller.state.phase;
 
@@ -855,36 +855,21 @@ class _GameTestScreenState extends State<GameTestScreen> {
               ],
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 12), // ✅ spacing
 
-            if (controller.state.isGameComplete)
-              Card(
-                color: Colors.green.shade100,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    (() {
-                      final winnerNames = controller.state.winnerIds.map((id) {
-                        final player = controller.state.players.firstWhere(
-                          (p) => p.trueId == id,
-                        );
-                        return player.alias;
-                      }).toList();
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  controller.state.isGameComplete = true;
 
-                      if (winnerNames.length == 1) {
-                        return '${winnerNames.first} is Top Hog!';
-                      }
-
-                      return '${winnerNames.join(' & ')} are Top Hogs!';
-                    })(),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
+                  controller.state.winnerIds = [
+                    controller.state.players.first.trueId,
+                  ];
+                });
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('DEV: End Game'),
+            ),
           ],
         ),
       ),

@@ -7,7 +7,7 @@ class PlayerInMatch {
   // Rashers (sets)
   int rashersWon;
   int progressThisSet = 0;
-  
+
   // Current set progress
   int setBankedScore;
   bool hasWonCurrentSet;
@@ -18,6 +18,12 @@ class PlayerInMatch {
 
   // Negative achievement
   bool goldenOink;
+
+  int basicPointsScored = 0;
+  int savesPassed = 0;
+  int savesFailed = 0;
+  int gloryWins = 0;
+  int gloryFails = 0;
 
   PlayerInMatch({
     required this.trueId,

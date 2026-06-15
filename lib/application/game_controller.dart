@@ -101,12 +101,18 @@ class GameController extends ChangeNotifier {
   void handlePendingD20(int d20) {
     final turn = state.currentTurn;
     if (turn == null) return;
-
+    final player = state.players.firstWhere((p) => p.trueId == turn.playerId);
     final pendingType = turn.pendingD20Type;
 
     switch (pendingType) {
       case PendingD20Type.positiveSave:
         final survived = rules.survivesPositiveSave(d20);
+
+        if (survived) {
+          player.savesPassed += 1;
+        } else {
+          player.savesFailed += 1;
+        }
 
         turn.rollHistory.add(
           RollEvent(
@@ -138,6 +144,12 @@ class GameController extends ChangeNotifier {
       case PendingD20Type.negativeSave:
         final survived = rules.survivesNegativeSave(d20);
 
+        if (survived) {
+          player.savesPassed += 1;
+        } else {
+          player.savesFailed += 1;
+        }
+
         turn.rollHistory.add(
           RollEvent(
             d20: d20,
@@ -161,6 +173,13 @@ class GameController extends ChangeNotifier {
 
       case PendingD20Type.winningChance:
         final winsImmediately = rules.winsOnWinningChance(d20);
+
+        // ✅ Track glory stats
+        if (winsImmediately) {
+          player.gloryWins += 1;
+        } else {
+          player.gloryFails += 1;
+        }
 
         turn.rollHistory.add(
           RollEvent(
@@ -359,6 +378,13 @@ class GameController extends ChangeNotifier {
 
     if (trotterBonus > 0) {
       turn.trotterEventsThisTurn += 1;
+    }
+
+    final player = state.players.firstWhere((p) => p.trueId == turn.playerId);
+
+    // ✅ Track +1 points only (no trotters)
+    if (normalPoints > 0 && trotterBonus == 0) {
+      player.basicPointsScored += normalPoints;
     }
 
     turn.canWaddleOut = turn.liveScore > turn.turnStartScore;

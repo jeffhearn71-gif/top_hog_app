@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-import 'presentation/screens/game_test_screen.dart';
+import 'presentation/screens/setup_screen.dart';
 
 void main() {
   runApp(const TopHogApp());
@@ -14,7 +13,7 @@ class TopHogApp extends StatelessWidget {
     return MaterialApp(
       title: 'Top Hog',
       theme: ThemeData(primarySwatch: Colors.pink),
-      home: const GameTestScreen(),
+      home: const SetupScreen(),
     );
   }
 }
