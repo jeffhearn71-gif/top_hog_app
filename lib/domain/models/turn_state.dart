@@ -13,6 +13,12 @@ class TurnState {
   int trotterBonusThisTurn;
   int trotterEventsThisTurn;
 
+  bool hasStreakThisTurn = false;
+  bool hasSuperStreakThisTurn = false;
+
+  bool pendingBankedStreak = false;
+  bool pendingBankedSuperStreak = false;
+
   // Player options
   bool canWaddleOut;
 

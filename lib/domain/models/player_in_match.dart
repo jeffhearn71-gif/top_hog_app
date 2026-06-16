@@ -20,6 +20,10 @@ class PlayerInMatch {
   bool goldenOink;
 
   int basicPointsScored = 0;
+
+  int streakCount = 0; // ✅ 10+ gained in a turn (banked only)
+  int superStreakCount = 0; // ✅ 20+ gained in a turn (banked only)
+
   int savesPassed = 0;
   int savesFailed = 0;
   int gloryWins = 0;

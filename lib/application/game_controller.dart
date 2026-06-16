@@ -225,6 +225,13 @@ class GameController extends ChangeNotifier {
     final player = state.players.firstWhere((p) => p.trueId == turn.playerId);
     player.setBankedScore = turn.liveScore;
 
+    // ✅ Bank streak stats only when player safely waddles out
+    if (turn.pendingBankedSuperStreak) {
+      player.superStreakCount += 1;
+    } else if (turn.pendingBankedStreak) {
+      player.streakCount += 1;
+    }
+
     _finishTurn();
   }
 
@@ -253,6 +260,7 @@ class GameController extends ChangeNotifier {
     final player = state.players.firstWhere((p) => p.trueId == playerId);
 
     player.rashersWon += 1;
+
     player.hasWonCurrentSet = true;
 
     for (final p in state.players) {
@@ -280,6 +288,7 @@ class GameController extends ChangeNotifier {
     } else {
       // ✅ Otherwise END THE SET immediately
       state.currentTurn = null;
+      advanceToNextPlayer();
       endSet();
     }
   }
@@ -297,7 +306,7 @@ class GameController extends ChangeNotifier {
     state.currentTurn = null;
     state.phase = GamePhase.startSet;
 
-    _moveToFirstEligiblePlayer();
+    // ✅ Keep the current activePlayerIndex so the next player in sequence starts
     startTurn();
   }
 
@@ -341,25 +350,39 @@ class GameController extends ChangeNotifier {
   /// 1) Higher Streaky Bacon count
   /// 2) Higher total Trotter bonus points
   /// 3) If still equal => tie
-  List<PlayerInMatch> resolveTopHogWinners(List<PlayerInMatch> finalists) {
-    if (finalists.isEmpty) return [];
+  List<PlayerInMatch> resolveTopHogWinners(List<PlayerInMatch> players) {
+    if (players.isEmpty) return [];
 
-    finalists.sort((a, b) {
-      final byStreaky = b.streakyBaconCount.compareTo(a.streakyBaconCount);
-      if (byStreaky != 0) return byStreaky;
+    players.sort((a, b) {
+      // ✅ 1. Rashers (highest priority)
+      final byRashers = b.rashersWon.compareTo(a.rashersWon);
+      if (byRashers != 0) return byRashers;
 
+      // ✅ 2. Super Streaks
+      final bySuperStreaks = b.superStreakCount.compareTo(a.superStreakCount);
+      if (bySuperStreaks != 0) return bySuperStreaks;
+
+      // ✅ 3. Streaks
+      final byStreaks = b.streakCount.compareTo(a.streakCount);
+      if (byStreaks != 0) return byStreaks;
+
+      // ✅ 4. Trotter bonus points
       final byTrotters = b.totalTrotterBonusPoints.compareTo(
         a.totalTrotterBonusPoints,
       );
       if (byTrotters != 0) return byTrotters;
 
+      // ✅ 5. Tie
       return 0;
     });
 
-    final best = finalists.first;
+    final best = players.first;
 
-    return finalists.where((player) {
-      return player.streakyBaconCount == best.streakyBaconCount &&
+    // ✅ Return all tied winners
+    return players.where((player) {
+      return player.rashersWon == best.rashersWon &&
+          player.superStreakCount == best.superStreakCount &&
+          player.streakCount == best.streakCount &&
           player.totalTrotterBonusPoints == best.totalTrotterBonusPoints;
     }).toList();
   }
@@ -389,6 +412,20 @@ class GameController extends ChangeNotifier {
 
     turn.canWaddleOut = turn.liveScore > turn.turnStartScore;
 
+    // ✅ Calculate points gained THIS TURN
+    final gainedThisTurn = turn.liveScore - turn.turnStartScore;
+
+    // ✅ Super Streak (20+)
+    if (!turn.hasSuperStreakThisTurn && gainedThisTurn >= 20) {
+      turn.hasSuperStreakThisTurn = true;
+      turn.hasStreakThisTurn = false; // ✅ ensure no double counting
+    }
+    // ✅ Streak (10+ but NOT already super streak)
+    else if (!turn.hasStreakThisTurn &&
+        !turn.hasSuperStreakThisTurn &&
+        gainedThisTurn >= 10) {
+      turn.hasStreakThisTurn = true;
+    }
     turn.rollHistory.add(
       RollEvent(
         d6a: d6a,

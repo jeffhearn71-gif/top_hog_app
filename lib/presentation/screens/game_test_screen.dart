@@ -35,6 +35,10 @@ class _GameTestScreenState extends State<GameTestScreen> {
   bool _isGloryWin = false;
   bool _isStreakWin = false;
   bool _showGameWinOverlay = false;
+  bool _showNewRank = true;
+  String? _rankRevealPlayerId;
+  double _rankPopScale = 1.0;
+  bool _isSuperStreakWin = false;
 
   final AudioPlayer _rollPlayer = AudioPlayer();
   final AudioPlayer _eventPlayer = AudioPlayer();
@@ -220,6 +224,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
     final phase = controller.state.phase;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFE3F2FD), // ✅ pale blue
       appBar: AppBar(title: const Text('Top Hog Test Screen')),
       body: Stack(
         children: [
@@ -309,21 +314,47 @@ class _GameTestScreenState extends State<GameTestScreen> {
                           Expanded(
                             child: Row(
                               children: List.generate(6, (slotIndex) {
+                                final isRankRevealPlayer =
+                                    playerExists &&
+                                    _rankRevealPlayerId == player!.trueId;
+
+                                // ✅ the newly earned icon is the current rashers index
+                                final newRankSlot = rashers;
+
                                 final achieved =
-                                    playerExists && slotIndex <= rashers;
+                                    playerExists &&
+                                    (isRankRevealPlayer
+                                        ? (slotIndex < newRankSlot ||
+                                              (_showNewRank &&
+                                                  slotIndex == newRankSlot))
+                                        : slotIndex <= rashers);
+
+                                final isNewlyRevealedRank =
+                                    isRankRevealPlayer &&
+                                    _showNewRank &&
+                                    slotIndex == newRankSlot;
 
                                 return Expanded(
                                   child: Column(
                                     children: [
-                                      SvgPicture.asset(
-                                        rankAssets[slotIndex],
-                                        height: 26,
-                                        colorFilter: achieved
-                                            ? null
-                                            : const ColorFilter.mode(
-                                                Colors.grey,
-                                                BlendMode.srcIn,
-                                              ),
+                                      AnimatedScale(
+                                        scale: isNewlyRevealedRank
+                                            ? _rankPopScale
+                                            : 1.0,
+                                        duration: const Duration(
+                                          milliseconds: 400,
+                                        ),
+                                        curve: Curves.easeInOut,
+                                        child: SvgPicture.asset(
+                                          rankAssets[slotIndex],
+                                          height: 26,
+                                          colorFilter: achieved
+                                              ? null
+                                              : const ColorFilter.mode(
+                                                  Colors.grey,
+                                                  BlendMode.srcIn,
+                                                ),
+                                        ),
                                       ),
 
                                       const SizedBox(height: 1),
@@ -530,11 +561,31 @@ class _GameTestScreenState extends State<GameTestScreen> {
                               final streaksBefore =
                                   actingPlayer.streakyBaconCount;
 
+                              final isFreshTurn =
+                                  (controller
+                                              .state
+                                              .currentTurn
+                                              ?.normalPointsThisTurn ??
+                                          0) ==
+                                      0 &&
+                                  (controller
+                                              .state
+                                              .currentTurn
+                                              ?.trotterBonusThisTurn ??
+                                          0) ==
+                                      0;
+
                               setState(() {
                                 _lastD6A = null;
                                 _lastD6B = null;
                                 _lastD20 = null;
                                 _feedbackQueue = [];
+
+                                // ✅ Only reset streak flags at the START of a brand-new turn
+                                if (isFreshTurn) {
+                                  _isStreakWin = false;
+                                  _isSuperStreakWin = false;
+                                }
                               });
 
                               await Future.delayed(
@@ -580,20 +631,63 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                     );
                                     messages.add(friendly);
 
-                                    if (friendly.startsWith('+1 POINT')) {
-                                      _playEventSound('score_basic.mp3');
-                                    } else if (friendly.startsWith('+2') ||
-                                        friendly.startsWith('+3') ||
-                                        friendly.startsWith('+4')) {
-                                      _playEventSound('score_trotter.mp3');
-                                    } else if (friendly == 'BUST!') {
-                                      _playEventSound('bust.mp3');
+                                    if (!_isStreakWin && !_isSuperStreakWin) {
+                                      if (friendly.startsWith('+1 POINT')) {
+                                        _playEventSound('score_basic.mp3');
+                                      } else if (friendly.startsWith('+2') ||
+                                          friendly.startsWith('+3') ||
+                                          friendly.startsWith('+4')) {
+                                        _playEventSound('score_trotter.mp3');
+                                      } else if (friendly == 'BUST!') {
+                                        _playEventSound('bust.mp3');
+                                      }
                                     }
                                   }
 
                                   messages.add('RASHER WON!');
+
                                   _isGloryWin = false;
+                                  _showNewRank = false; // ✅ hide rank initially
+                                  _rankRevealPlayerId = actingPlayer.trueId;
+                                  _rankPopScale = 1.0;
                                   _showRasherOverlay = true;
+
+                                  // ✅ reveal new rank after 1500ms
+                                  Future.delayed(
+                                    const Duration(milliseconds: 1500),
+                                    () {
+                                      if (mounted) {
+                                        setState(() {
+                                          _showNewRank =
+                                              true; // appears first at normal size
+                                          _rankPopScale = 1.0;
+                                        });
+
+                                        // ✅ grow to 1.5 AFTER it appears
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              if (mounted) {
+                                                setState(() {
+                                                  _rankPopScale = 1.5;
+                                                });
+                                              }
+                                            });
+
+                                        // ✅ shrink back to 1.0 after 400ms
+                                        Future.delayed(
+                                          const Duration(milliseconds: 400),
+                                          () {
+                                            if (mounted) {
+                                              setState(() {
+                                                _rankPopScale = 1.0;
+                                                _rankRevealPlayerId = null;
+                                              });
+                                            }
+                                          },
+                                        );
+                                      }
+                                    },
+                                  );
 
                                   Future.delayed(
                                     const Duration(milliseconds: 3000),
@@ -607,14 +701,12 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                   );
 
                                   if (streaksAfter > streaksBefore) {
-                                    _isStreakWin = true; // ✅ mark streak
+                                    _isStreakWin = true;
 
                                     _eventPlayer.stop();
-                                    _playEventSound(
-                                      'win_streak.mp3',
-                                    ); // ✅ new sound
+                                    _playEventSound('win_streak.mp3');
                                   } else {
-                                    _isStreakWin = false; // ✅ reset
+                                    _isStreakWin = false;
 
                                     _eventPlayer.stop();
                                     _playEventSound('win_rasher.mp3');
@@ -658,13 +750,67 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
                                     messages.add(friendly);
 
-                                    if (friendly.startsWith('+1 POINT')) {
-                                      _playEventSound('score_basic.mp3');
-                                    } else if (friendly.startsWith('+2') ||
-                                        friendly.startsWith('+3') ||
-                                        friendly.startsWith('+4')) {
-                                      _playEventSound('score_trotter.mp3');
+                                    if (!_isStreakWin && !_isSuperStreakWin) {
+                                      if (friendly.startsWith('+1 POINT')) {
+                                        _playEventSound('score_basic.mp3');
+                                      } else if (friendly.startsWith('+2') ||
+                                          friendly.startsWith('+3') ||
+                                          friendly.startsWith('+4')) {
+                                        _playEventSound('score_trotter.mp3');
+                                      } else if (friendly == 'BUST!') {
+                                        _playEventSound('bust.mp3');
+                                      }
                                     }
+                                  }
+                                }
+
+                                // ✅ STREAK DETECTION (LIVE — Super can upgrade normal Streak)
+                                if (updatedTurn != null) {
+                                  // 🔥🔥 Super Streak (20+ gained this turn)
+                                  if (updatedTurn.hasSuperStreakThisTurn &&
+                                      !_isSuperStreakWin) {
+                                    _isSuperStreakWin = true;
+                                    _isStreakWin = true;
+                                    updatedTurn.pendingBankedSuperStreak = true;
+
+                                    _eventPlayer.stop();
+                                    _playEventSound('win_super_streak.mp3');
+
+                                    _showRasherOverlay = true;
+
+                                    Future.delayed(
+                                      const Duration(milliseconds: 1200),
+                                      () {
+                                        if (mounted) {
+                                          setState(() {
+                                            _showRasherOverlay = false;
+                                          });
+                                        }
+                                      },
+                                    );
+                                  }
+                                  // 🔥 Normal Streak (10+ gained this turn)
+                                  else if (updatedTurn.hasStreakThisTurn &&
+                                      !_isStreakWin &&
+                                      !_isSuperStreakWin) {
+                                    _isStreakWin = true;
+                                    updatedTurn.pendingBankedStreak = true;
+
+                                    _eventPlayer.stop();
+                                    _playEventSound('win_streak.mp3');
+
+                                    _showRasherOverlay = true;
+
+                                    Future.delayed(
+                                      const Duration(milliseconds: 1200),
+                                      () {
+                                        if (mounted) {
+                                          setState(() {
+                                            _showRasherOverlay = false;
+                                          });
+                                        }
+                                      },
+                                    );
                                   }
                                 }
 
@@ -727,6 +873,16 @@ class _GameTestScreenState extends State<GameTestScreen> {
                               );
 
                               final d20 = controller.rollD20();
+
+                              // ✅ Epic fail on natural 1
+                              if (d20 == 1) {
+                                _eventPlayer.stop();
+                                _playEventSound('epic_fail.mp3');
+                              }
+
+                              await Future.delayed(
+                                const Duration(milliseconds: 500),
+                              );
 
                               setState(() {
                                 _lastD20 = d20;
@@ -825,6 +981,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 if (wonRasherThisRoll) {
                                   messages.add('RASHER WON!');
                                   _isGloryWin = false;
+                                  _rankRevealPlayerId = actingPlayer.trueId;
                                   _showRasherOverlay = true;
 
                                   Future.delayed(
@@ -849,6 +1006,51 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
                                     _eventPlayer.stop();
                                     _playEventSound('win_rasher.mp3');
+                                  }
+                                }
+                                // ✅ STREAK DETECTION after D20 scoring (e.g. CLOSE....BUT NO CIGAR! +4)
+                                if (updatedTurn != null) {
+                                  // 🔥🔥 Super Streak (20+ gained this turn)
+                                  if (updatedTurn.hasSuperStreakThisTurn &&
+                                      !_isSuperStreakWin) {
+                                    _isSuperStreakWin = true;
+                                    _isStreakWin = true;
+
+                                    _eventPlayer.stop();
+                                    _playEventSound('win_super_streak.mp3');
+
+                                    _showRasherOverlay = true;
+                                    Future.delayed(
+                                      const Duration(milliseconds: 1200),
+                                      () {
+                                        if (mounted) {
+                                          setState(() {
+                                            _showRasherOverlay = false;
+                                          });
+                                        }
+                                      },
+                                    );
+                                  }
+                                  // 🔥 Normal Streak (10+ gained this turn)
+                                  else if (updatedTurn.hasStreakThisTurn &&
+                                      !_isStreakWin &&
+                                      !_isSuperStreakWin) {
+                                    _isStreakWin = true;
+
+                                    _eventPlayer.stop();
+                                    _playEventSound('win_streak.mp3');
+
+                                    _showRasherOverlay = true;
+                                    Future.delayed(
+                                      const Duration(milliseconds: 1200),
+                                      () {
+                                        if (mounted) {
+                                          setState(() {
+                                            _showRasherOverlay = false;
+                                          });
+                                        }
+                                      },
+                                    );
                                   }
                                 }
 
@@ -942,22 +1144,40 @@ class _GameTestScreenState extends State<GameTestScreen> {
                   SvgPicture.asset(
                     _isGloryWin
                         ? 'assets/icons/cup.svg'
+                        : _isSuperStreakWin
+                        ? 'assets/icons/exploding_head.svg'
                         : _isStreakWin
                         ? 'assets/icons/flame.svg'
                         : 'assets/icons/rasher.svg',
                     height: _isGloryWin
-                        ? 160
+                        ? 180
+                        : _isSuperStreakWin
+                        ? 170
                         : _isStreakWin
                         ? 140
                         : 120,
                   ),
 
                   const SizedBox(height: 12),
+
                   Text(
-                    _isGloryWin ? 'GLORY!!!' : 'RASHER WON!',
+                    _isGloryWin
+                        ? 'GLORY!!!'
+                        : _isSuperStreakWin
+                        ? 'SUPER STREAK!!!'
+                        : _isStreakWin
+                        ? 'STREAK!'
+                        : 'RASHER WON!',
 
                     style: TextStyle(
-                      fontSize: _isGloryWin ? 34 : 28,
+                      fontSize: _isGloryWin
+                          ? 40
+                          : _isSuperStreakWin
+                          ? 36
+                          : _isStreakWin
+                          ? 30
+                          : 28,
+
                       fontWeight: FontWeight.bold,
                       color: _isGloryWin ? Colors.amber : Colors.orange,
                     ),
@@ -987,11 +1207,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                 ],
               ),
             ),
-
         ],
       ),
     );
   }
 }
-
-  

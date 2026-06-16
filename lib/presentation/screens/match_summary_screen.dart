@@ -162,6 +162,32 @@ class MatchSummaryScreen extends StatelessWidget {
                     text: TextSpan(
                       style: const TextStyle(fontSize: 14, color: Colors.black),
                       children: [
+                        const TextSpan(text: '🔥 Streaks: '),
+                        TextSpan(
+                          text: '${p.streakCount}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      children: [
+                        const TextSpan(text: '🤯 Super Streaks: '),
+                        TextSpan(
+                          text: '${p.superStreakCount}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      children: [
                         const TextSpan(text: '🏆 Streaky Bacon: '),
                         TextSpan(
                           text: '${p.streakyBaconCount}',
