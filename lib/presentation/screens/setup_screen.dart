@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:audioplayers/audioplayers.dart';
+
 import '../../application/game_controller.dart';
 import '../../domain/enums/game_phase.dart';
 import '../../domain/models/match_state.dart';
@@ -15,14 +18,24 @@ class SetupScreen extends StatefulWidget {
 
 class _SetupScreenState extends State<SetupScreen> {
   int playerCount = 2;
-  int startingPlayerIndex = 0;
+  late List<int> playOrder;
 
   final defaultNames = ['Jeff', 'Keira', 'Meredith', 'Dan'];
   late List<TextEditingController> controllers;
 
+  String _suffix(int n) {
+    if (n == 1) return 'st';
+    if (n == 2) return 'nd';
+    if (n == 3) return 'rd';
+    return 'th';
+  }
+
   @override
   void initState() {
     super.initState();
+
+    // Default play order for up to 4 players.
+    playOrder = List.generate(4, (index) => index);
 
     controllers = List.generate(
       4,
@@ -30,27 +43,38 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
+  Future<void> _playEventSound(String fileName) async {
+    try {
+      final player = AudioPlayer();
+      await player.play(AssetSource('sounds/$fileName'));
+    } catch (e) {
+      debugPrint('Sound error: $e');
+    }
+  }
+
   void _startGame() {
-    final players = List.generate(playerCount, (index) {
+    final players = List.generate(playerCount, (position) {
+      final playerIndex = playOrder[position];
+
       return PlayerInMatch(
-        trueId: 'local_${DateTime.now().millisecondsSinceEpoch}_$index',
-        alias: controllers[index].text.trim().isEmpty
-            ? defaultNames[index]
-            : controllers[index].text.trim(),
-        playOrder: index + 1,
+        trueId: 'local_${DateTime.now().millisecondsSinceEpoch}_$playerIndex',
+        alias: controllers[playerIndex].text.trim().isEmpty
+            ? defaultNames[playerIndex]
+            : controllers[playerIndex].text.trim(),
+        playOrder: position + 1,
       );
     });
 
     final matchState = MatchState(
       players: players,
-      activePlayerIndex: startingPlayerIndex,
+      activePlayerIndex: 0,
       phase: GamePhase.startTurn,
       currentSet: SetState(setNumber: 1),
     );
 
     final controller = GameController(state: matchState);
 
-    // ✅ Start the first turn before navigating
+    // Start the first turn before navigating
     controller.startTurn();
 
     Navigator.pushReplacement(
@@ -74,7 +98,11 @@ class _SetupScreenState extends State<SetupScreen> {
 
             const SizedBox(height: 16),
 
-            // ✅ Player count
+            SvgPicture.asset('assets/icons/rank5_top_hog.svg', height: 120),
+
+            const SizedBox(height: 16),
+
+            // Player count
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [2, 3, 4].map((count) {
@@ -82,19 +110,21 @@ class _SetupScreenState extends State<SetupScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: ElevatedButton(
                     onPressed: () {
+                      _playEventSound('button_click.mp3');
+
                       setState(() {
                         playerCount = count;
-                        if (startingPlayerIndex >= playerCount) {
-                          startingPlayerIndex = 0;
-                        }
+
+                        // Reset play order to a valid default for the selected player count
+                        playOrder = List.generate(count, (index) => index);
                       });
                     },
-                    child: Text('$count Players'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: playerCount == count
                           ? Colors.orange
                           : Colors.grey,
                     ),
+                    child: Text('$count Players'),
                   ),
                 );
               }).toList(),
@@ -102,7 +132,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
             const SizedBox(height: 16),
 
-            // ✅ Name inputs
+            // Name inputs
             Column(
               children: List.generate(playerCount, (index) {
                 return Padding(
@@ -120,36 +150,76 @@ class _SetupScreenState extends State<SetupScreen> {
 
             const SizedBox(height: 16),
 
-            // ✅ Who goes first
             const Text(
-              'Who goes first?',
+              'Choose Playing Order',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
 
             Column(
-              children: List.generate(playerCount, (index) {
-                return RadioListTile<int>(
-                  title: Text('Player ${index + 1}'),
-                  value: index,
-                  groupValue: startingPlayerIndex,
-                  onChanged: (value) {
-                    setState(() {
-                      startingPlayerIndex = value!;
-                    });
-                  },
+              children: List.generate(playerCount, (position) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${position + 1}${_suffix(position + 1)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    DropdownButton<int>(
+                      value: playOrder[position],
+                      items: List.generate(playerCount, (playerIndex) {
+                        return DropdownMenuItem<int>(
+                          value: playerIndex,
+                          child: Text(
+                            controllers[playerIndex].text.isEmpty
+                                ? 'Player ${playerIndex + 1}'
+                                : controllers[playerIndex].text,
+                          ),
+                        );
+                      }),
+                      onChanged: (value) {
+                        if (value == null) return;
+
+                        setState(() {
+                          final otherIndex = playOrder.indexOf(value);
+
+                          // If this player is already selected elsewhere → swap
+                          if (otherIndex != -1 && otherIndex != position) {
+                            final temp = playOrder[position];
+                            playOrder[position] = value;
+                            playOrder[otherIndex] = temp;
+                          } else {
+                            playOrder[position] = value;
+                          }
+                        });
+                      },
+                    ),
+                  ],
                 );
               }),
             ),
 
             const Spacer(),
 
-            // ✅ Start button
+            // Start button
             ElevatedButton(
-              onPressed: _startGame,
               style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
                 minimumSize: const Size.fromHeight(60),
+                elevation: 10,
               ),
-              child: const Text('START GAME', style: TextStyle(fontSize: 18)),
+              onPressed: () {
+                _playEventSound('start_button.mp3');
+                _startGame();
+              },
+              child: const Text(
+                'START GAME',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
             ),
           ],
         ),
