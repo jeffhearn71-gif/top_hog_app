@@ -16,6 +16,8 @@ class GameTestScreen extends StatefulWidget {
   State<GameTestScreen> createState() => _GameTestScreenState();
 }
 
+enum OverlayKind { none, rasher, streak, superStreak, glory, gameWin }
+
 class _GameTestScreenState extends State<GameTestScreen> {
   late final GameController controller;
 
@@ -53,6 +55,17 @@ class _GameTestScreenState extends State<GameTestScreen> {
   ];
 
   final rankLabels = ['Oinker', 'Piglet', 'Porker', 'Boar', 'Hog', 'Top Hog'];
+
+  OverlayKind _currentOverlayKind() {
+    if (_showGameWinOverlay) return OverlayKind.gameWin;
+    if (!_showRasherOverlay) return OverlayKind.none;
+
+    if (_isSuperStreakWin) return OverlayKind.superStreak;
+    if (_isStreakWin) return OverlayKind.streak;
+    if (_isGloryWin) return OverlayKind.glory;
+
+    return OverlayKind.rasher;
+  }
 
   String _getD20Instruction(TurnState turn) {
     switch (turn.pendingD20Type) {
@@ -696,7 +709,6 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       }
                                     },
                                   );
-                                
                                 }
                                 // ✅ Winning chance triggered
                                 else if (updatedTurn != null &&
@@ -736,7 +748,26 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
                                     messages.add(friendly);
 
-                                    if (!_isStreakWin || !_isSuperStreakWin) {
+                                    if (friendly == 'BUST!') {
+                                      _isGloryWin = false;
+                                      _isStreakWin = false;
+                                      _isSuperStreakWin = false;
+
+                                      _showRasherOverlay = true;
+
+                                      Future.delayed(
+                                        const Duration(milliseconds: 1200),
+                                        () {
+                                          if (mounted) {
+                                            setState(() {
+                                              _showRasherOverlay = false;
+                                            });
+                                          }
+                                        },
+                                      );
+                                    }
+
+                                    if (!_isSuperStreakWin) {
                                       if (friendly.startsWith('+1 POINT')) {
                                         _playEventSound('score_basic.mp3');
                                       } else if (friendly.startsWith('+2') ||
@@ -756,13 +787,36 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                   if (updatedTurn.hasSuperStreakThisTurn &&
                                       !_isSuperStreakWin) {
                                     _isSuperStreakWin = true;
-                                    _isStreakWin = true;
+                                    _isStreakWin = false;
+                                    _isGloryWin = false;
                                     updatedTurn.pendingBankedSuperStreak = true;
 
-                                    _eventPlayer.stop();
-                                    _playEventSound('win_super_streak.mp3');
+                                    // ✅ force a fresh super-streak overlay
+                                    _showRasherOverlay = false;
 
-                                    _showRasherOverlay = true;
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (mounted) {
+                                            setState(() {
+                                              _showRasherOverlay = true;
+                                            });
+                                            _eventPlayer.stop();
+                                            _playEventSound(
+                                              'win_super_streak.mp3',
+                                            );
+                                          }
+                                        });
+
+                                    Future.delayed(
+                                      const Duration(milliseconds: 1200),
+                                      () {
+                                        if (mounted) {
+                                          setState(() {
+                                            _showRasherOverlay = false;
+                                          });
+                                        }
+                                      },
+                                    );
 
                                     Future.delayed(
                                       const Duration(milliseconds: 1200),
@@ -976,7 +1030,6 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       }
                                     },
                                   );
-                                  
                                 }
                                 // ✅ STREAK DETECTION after D20 scoring (e.g. CLOSE....BUT NO CIGAR! +4)
                                 if (updatedTurn != null) {
@@ -984,12 +1037,37 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                   if (updatedTurn.hasSuperStreakThisTurn &&
                                       !_isSuperStreakWin) {
                                     _isSuperStreakWin = true;
-                                    _isStreakWin = true;
+                                    _isStreakWin = false;
+                                    _isGloryWin = false;
+                                    updatedTurn.pendingBankedSuperStreak = true;
 
-                                    _eventPlayer.stop();
-                                    _playEventSound('win_super_streak.mp3');
+                                    // ✅ force a fresh super-streak overlay
+                                    _showRasherOverlay = false;
 
-                                    _showRasherOverlay = true;
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (mounted) {
+                                            setState(() {
+                                              _showRasherOverlay = true;
+                                            });
+                                            _eventPlayer.stop();
+                                            _playEventSound(
+                                              'win_super_streak.mp3',
+                                            );
+                                          }
+                                        });
+
+                                    Future.delayed(
+                                      const Duration(milliseconds: 1200),
+                                      () {
+                                        if (mounted) {
+                                          setState(() {
+                                            _showRasherOverlay = false;
+                                          });
+                                        }
+                                      },
+                                    );
+
                                     Future.delayed(
                                       const Duration(milliseconds: 1200),
                                       () {
@@ -1105,73 +1183,52 @@ class _GameTestScreenState extends State<GameTestScreen> {
             ),
           ),
 
-          // ✅ RASHER WIN OVERLAY
-          if (_showRasherOverlay)
+          // ✅ MAIN EVENT OVERLAY
+          if (_currentOverlayKind() != OverlayKind.none &&
+              _currentOverlayKind() != OverlayKind.gameWin)
             Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SvgPicture.asset(
-                    _isGloryWin
-                        ? 'assets/icons/cup.svg'
-                        : _isSuperStreakWin
+                    _currentOverlayKind() == OverlayKind.superStreak
                         ? 'assets/icons/exploding_head.svg'
-                        : _isStreakWin
+                        : _currentOverlayKind() == OverlayKind.streak
                         ? 'assets/icons/flame.svg'
+                        : _currentOverlayKind() == OverlayKind.glory
+                        ? 'assets/icons/cup.svg'
                         : 'assets/icons/rasher.svg',
-                    height: _isGloryWin
+                    height: _currentOverlayKind() == OverlayKind.superStreak
                         ? 180
-                        : _isSuperStreakWin
-                        ? 170
-                        : _isStreakWin
+                        : _currentOverlayKind() == OverlayKind.streak
                         ? 140
+                        : _currentOverlayKind() == OverlayKind.glory
+                        ? 180
                         : 120,
                   ),
 
                   const SizedBox(height: 12),
 
                   Text(
-                    _isGloryWin
-                        ? 'GLORY!!!'
-                        : _isSuperStreakWin
+                    _currentOverlayKind() == OverlayKind.superStreak
                         ? 'SUPER STREAK!!!'
-                        : _isStreakWin
+                        : _currentOverlayKind() == OverlayKind.streak
                         ? 'STREAK!'
+                        : _currentOverlayKind() == OverlayKind.glory
+                        ? 'GLORY!!!'
                         : 'RASHER WON!',
-
                     style: TextStyle(
-                      fontSize: _isGloryWin
-                          ? 40
-                          : _isSuperStreakWin
+                      fontSize: _currentOverlayKind() == OverlayKind.superStreak
                           ? 36
-                          : _isStreakWin
+                          : _currentOverlayKind() == OverlayKind.streak
                           ? 30
+                          : _currentOverlayKind() == OverlayKind.glory
+                          ? 40
                           : 28,
-
                       fontWeight: FontWeight.bold,
-                      color: _isGloryWin ? Colors.amber : Colors.orange,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          // ✅ GAME WIN OVERLAY
-          if (_showGameWinOverlay)
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset(
-                    'assets/icons/rank5_top_hog.svg',
-                    height: 180,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'TOP HOG!',
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.amber,
+                      color: _currentOverlayKind() == OverlayKind.glory
+                          ? Colors.amber
+                          : Colors.orange,
                     ),
                   ),
                 ],
