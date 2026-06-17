@@ -98,7 +98,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
             const SizedBox(height: 16),
 
-            SvgPicture.asset('assets/icons/rank5_top_hog.svg', height: 120),
+            Image.asset('assets/icons/app_icon.png', height: 120),
 
             const SizedBox(height: 16),
 
