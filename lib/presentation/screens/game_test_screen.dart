@@ -16,7 +16,7 @@ class GameTestScreen extends StatefulWidget {
   State<GameTestScreen> createState() => _GameTestScreenState();
 }
 
-enum OverlayKind { none, rasher, streak, superStreak, glory, gameWin }
+enum OverlayKind { none, rasher, streak, superStreak, glory, bust, gameWin }
 
 class _GameTestScreenState extends State<GameTestScreen> {
   late final GameController controller;
@@ -67,6 +67,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
         return OverlayKind.streak;
       case 'glory':
         return OverlayKind.glory;
+      case 'bust':
+        return OverlayKind.bust;
       case 'rasher':
         return OverlayKind.rasher;
       default:
@@ -111,30 +113,29 @@ class _GameTestScreenState extends State<GameTestScreen> {
     }
 
     // ✅ TROTTER CASES (progression logic)
+
     if (lower.contains('trotter')) {
       // ✅ Winning chance (6,6)
       if (lower.contains('winning')) {
         return '+4 POINTS (+1 Point, +3 Trotters)';
       }
 
-      // ✅ Positive save (1,1 usually)
+      // ✅ Positive save (1,1)
       if (lower.contains('positive')) {
         return '+2 POINTS (+1 Point, +1 Trotter)';
       }
 
-      // ✅ We still need to infer remaining tiers
-      // Since engine labels are not granular, we use pattern length:
+      // ✅ Explicit low double (1,1 or 2,2)
+      if (lower.contains('trotter') && lower.contains('save')) {
+        return '+2 POINTS (+1 Point, +1 Trotter)';
+      }
 
-      // crude but safe mapping based on repetition wording
+      // ✅ 3/4/5 trotters
       if (lower.contains('3')) {
         return '+3 POINTS (+1 Point, +2 Trotters)';
       }
 
-      if (lower.contains('2')) {
-        return '+2 POINTS (+1 Point, +1 Trotter)';
-      }
-
-      // fallback (mid-tier)
+      // fallback
       return '+3 POINTS (+1 Point, +2 Trotters)';
     }
 
@@ -803,35 +804,20 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                     // ✅ force a fresh super-streak overlay
                                     _showRasherOverlay = false;
 
-                                    WidgetsBinding.instance.addPostFrameCallback((
-                                      _,
-                                    ) {
-                                      if (mounted) {
-                                        setState(() {
-                                          _showRasherOverlay = true;
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (mounted) {
+                                            setState(() {
+                                              _showRasherOverlay = true;
+                                            });
+
+                                            _eventPlayer.stop();
+
+                                            _playEventSound(
+                                              'win_super_streak.mp3',
+                                            );
+                                          }
                                         });
-
-                                        _eventPlayer.stop();
-
-                                        Future.delayed(
-                                          const Duration(milliseconds: 40),
-                                          () async {
-                                            try {
-                                              await _eventPlayer.stop();
-                                              await _eventPlayer.play(
-                                                AssetSource(
-                                                  'sounds/win_super_streak.mp3',
-                                                ),
-                                              );
-                                            } catch (e) {
-                                              debugPrint(
-                                                'Super streak sound error: $e',
-                                              );
-                                            }
-                                          },
-                                        );
-                                      }
-                                    });
 
                                     Future.delayed(
                                       const Duration(milliseconds: 1200),
@@ -952,23 +938,63 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                   case PendingD20Type.negativeSave:
                                     final survived =
                                         (d20 == 4 || d20 == 11 || d20 == 20);
+
                                     messages.add(survived ? 'SAVED!' : 'BUST!');
+
                                     _playEventSound(
                                       survived
                                           ? 'save_pass.mp3'
                                           : 'save_fail.mp3',
                                     );
+
+                                    if (!survived) {
+                                      controller.lastTriggeredEvent = 'bust';
+
+                                      _showRasherOverlay = true;
+
+                                      Future.delayed(
+                                        const Duration(milliseconds: 1200),
+                                        () {
+                                          if (mounted) {
+                                            setState(() {
+                                              _showRasherOverlay = false;
+                                            });
+                                          }
+                                        },
+                                      );
+                                    }
+
                                     break;
 
                                   case PendingD20Type.positiveSave:
                                     final busted =
                                         (d20 == 1 || d20 == 4 || d20 == 11);
+
                                     messages.add(busted ? 'BUST!' : 'SAVED!');
+
                                     _playEventSound(
                                       busted
                                           ? 'save_fail.mp3'
                                           : 'save_pass.mp3',
                                     );
+
+                                    if (busted) {
+                                      controller.lastTriggeredEvent = 'bust';
+
+                                      _showRasherOverlay = true;
+
+                                      Future.delayed(
+                                        const Duration(milliseconds: 1200),
+                                        () {
+                                          if (mounted) {
+                                            setState(() {
+                                              _showRasherOverlay = false;
+                                            });
+                                          }
+                                        },
+                                      );
+                                    }
+
                                     break;
 
                                   case PendingD20Type.winningChance:
@@ -1217,13 +1243,16 @@ class _GameTestScreenState extends State<GameTestScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SvgPicture.asset(
-                    _currentOverlayKind() == OverlayKind.superStreak
+                    _currentOverlayKind() == OverlayKind.bust
+                        ? 'assets/icons/broken_heart.svg'
+                        : _currentOverlayKind() == OverlayKind.superStreak
                         ? 'assets/icons/exploding_head.svg'
                         : _currentOverlayKind() == OverlayKind.streak
                         ? 'assets/icons/flame.svg'
                         : _currentOverlayKind() == OverlayKind.glory
                         ? 'assets/icons/cup.svg'
                         : 'assets/icons/rasher.svg',
+
                     height: _currentOverlayKind() == OverlayKind.superStreak
                         ? 180
                         : _currentOverlayKind() == OverlayKind.streak
@@ -1236,13 +1265,16 @@ class _GameTestScreenState extends State<GameTestScreen> {
                   const SizedBox(height: 12),
 
                   Text(
-                    _currentOverlayKind() == OverlayKind.superStreak
+                    _currentOverlayKind() == OverlayKind.bust
+                        ? 'BUST!'
+                        : _currentOverlayKind() == OverlayKind.superStreak
                         ? 'SUPER STREAK!!!'
                         : _currentOverlayKind() == OverlayKind.streak
                         ? 'STREAK!'
                         : _currentOverlayKind() == OverlayKind.glory
                         ? 'GLORY!!!'
                         : 'RASHER WON!',
+
                     style: TextStyle(
                       fontSize: _currentOverlayKind() == OverlayKind.superStreak
                           ? 36
