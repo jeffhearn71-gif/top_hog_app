@@ -15,6 +15,7 @@ class GameController extends ChangeNotifier {
   MatchState state;
   final TopHogRuleEngine rules;
   final Random rng;
+  String? lastTriggeredEvent;
 
   GameController({required this.state, TopHogRuleEngine? rules, Random? rng})
     : rules = rules ?? TopHogRuleEngine(),
@@ -416,15 +417,18 @@ class GameController extends ChangeNotifier {
     final gainedThisTurn = turn.liveScore - turn.turnStartScore;
 
     // ✅ Super Streak (20+)
-    if (!turn.hasSuperStreakThisTurn && gainedThisTurn >= 20) {
+
+    if (gainedThisTurn >= 20) {
       turn.hasSuperStreakThisTurn = true;
-      turn.hasStreakThisTurn = false; // ✅ ensure no double counting
+      turn.hasStreakThisTurn = false;
+      lastTriggeredEvent = 'superStreak';
     }
     // ✅ Streak (10+ but NOT already super streak)
     else if (!turn.hasStreakThisTurn &&
         !turn.hasSuperStreakThisTurn &&
         gainedThisTurn >= 10) {
       turn.hasStreakThisTurn = true;
+      lastTriggeredEvent = 'streak';
     }
     turn.rollHistory.add(
       RollEvent(

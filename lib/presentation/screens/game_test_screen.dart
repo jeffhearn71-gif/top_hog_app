@@ -60,11 +60,18 @@ class _GameTestScreenState extends State<GameTestScreen> {
     if (_showGameWinOverlay) return OverlayKind.gameWin;
     if (!_showRasherOverlay) return OverlayKind.none;
 
-    if (_isSuperStreakWin) return OverlayKind.superStreak;
-    if (_isStreakWin) return OverlayKind.streak;
-    if (_isGloryWin) return OverlayKind.glory;
-
-    return OverlayKind.rasher;
+    switch (controller.lastTriggeredEvent) {
+      case 'superStreak':
+        return OverlayKind.superStreak;
+      case 'streak':
+        return OverlayKind.streak;
+      case 'glory':
+        return OverlayKind.glory;
+      case 'rasher':
+        return OverlayKind.rasher;
+      default:
+        return OverlayKind.rasher;
+    }
   }
 
   String _getD20Instruction(TurnState turn) {
@@ -788,35 +795,43 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       !_isSuperStreakWin) {
                                     _isSuperStreakWin = true;
                                     _isStreakWin = false;
+                                    controller.lastTriggeredEvent =
+                                        'superStreak';
                                     _isGloryWin = false;
                                     updatedTurn.pendingBankedSuperStreak = true;
 
                                     // ✅ force a fresh super-streak overlay
                                     _showRasherOverlay = false;
 
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (mounted) {
-                                            setState(() {
-                                              _showRasherOverlay = true;
-                                            });
-                                            _eventPlayer.stop();
-                                            _playEventSound(
-                                              'win_super_streak.mp3',
-                                            );
-                                          }
+                                    WidgetsBinding.instance.addPostFrameCallback((
+                                      _,
+                                    ) {
+                                      if (mounted) {
+                                        setState(() {
+                                          _showRasherOverlay = true;
                                         });
 
-                                    Future.delayed(
-                                      const Duration(milliseconds: 1200),
-                                      () {
-                                        if (mounted) {
-                                          setState(() {
-                                            _showRasherOverlay = false;
-                                          });
-                                        }
-                                      },
-                                    );
+                                        _eventPlayer.stop();
+
+                                        Future.delayed(
+                                          const Duration(milliseconds: 40),
+                                          () async {
+                                            try {
+                                              await _eventPlayer.stop();
+                                              await _eventPlayer.play(
+                                                AssetSource(
+                                                  'sounds/win_super_streak.mp3',
+                                                ),
+                                              );
+                                            } catch (e) {
+                                              debugPrint(
+                                                'Super streak sound error: $e',
+                                              );
+                                            }
+                                          },
+                                        );
+                                      }
+                                    });
 
                                     Future.delayed(
                                       const Duration(milliseconds: 1200),
@@ -834,6 +849,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       !_isStreakWin &&
                                       !_isSuperStreakWin) {
                                     _isStreakWin = true;
+                                    controller.lastTriggeredEvent = 'streak';
                                     updatedTurn.pendingBankedStreak = true;
 
                                     _eventPlayer.stop();
@@ -1016,6 +1032,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
                                 if (wonRasherThisRoll) {
                                   messages.add('RASHER WON!');
+                                  controller.lastTriggeredEvent = 'rasher';
                                   _isGloryWin = false;
                                   _rankRevealPlayerId = actingPlayer.trueId;
                                   _showRasherOverlay = true;
@@ -1034,39 +1051,48 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 // ✅ STREAK DETECTION after D20 scoring (e.g. CLOSE....BUT NO CIGAR! +4)
                                 if (updatedTurn != null) {
                                   // 🔥🔥 Super Streak (20+ gained this turn)
+
                                   if (updatedTurn.hasSuperStreakThisTurn &&
                                       !_isSuperStreakWin) {
                                     _isSuperStreakWin = true;
                                     _isStreakWin = false;
+                                    controller.lastTriggeredEvent =
+                                        'superStreak';
                                     _isGloryWin = false;
                                     updatedTurn.pendingBankedSuperStreak = true;
 
                                     // ✅ force a fresh super-streak overlay
                                     _showRasherOverlay = false;
 
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (mounted) {
-                                            setState(() {
-                                              _showRasherOverlay = true;
-                                            });
-                                            _eventPlayer.stop();
-                                            _playEventSound(
-                                              'win_super_streak.mp3',
-                                            );
-                                          }
+                                    WidgetsBinding.instance.addPostFrameCallback((
+                                      _,
+                                    ) {
+                                      if (mounted) {
+                                        setState(() {
+                                          _showRasherOverlay = true;
                                         });
 
-                                    Future.delayed(
-                                      const Duration(milliseconds: 1200),
-                                      () {
-                                        if (mounted) {
-                                          setState(() {
-                                            _showRasherOverlay = false;
-                                          });
-                                        }
-                                      },
-                                    );
+                                        _eventPlayer.stop();
+
+                                        Future.delayed(
+                                          const Duration(milliseconds: 40),
+                                          () async {
+                                            try {
+                                              await _eventPlayer.stop();
+                                              await _eventPlayer.play(
+                                                AssetSource(
+                                                  'sounds/win_super_streak.mp3',
+                                                ),
+                                              );
+                                            } catch (e) {
+                                              debugPrint(
+                                                'Super streak sound error: $e',
+                                              );
+                                            }
+                                          },
+                                        );
+                                      }
+                                    });
 
                                     Future.delayed(
                                       const Duration(milliseconds: 1200),
