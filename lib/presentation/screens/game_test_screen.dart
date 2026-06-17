@@ -558,8 +558,6 @@ class _GameTestScreenState extends State<GameTestScreen> {
                               _playRollSound('dice_roll.mp3');
                               final actingPlayer = controller.currentPlayer;
                               final rashersBefore = actingPlayer.rashersWon;
-                              final streaksBefore =
-                                  actingPlayer.streakyBaconCount;
 
                               final isFreshTurn =
                                   (controller
@@ -601,8 +599,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 final updatedTurn =
                                     controller.state.currentTurn;
                                 final rashersAfter = actingPlayer.rashersWon;
-                                final streaksAfter =
-                                    actingPlayer.streakyBaconCount;
+
                                 final wonRasherThisRoll =
                                     rashersAfter > rashersBefore;
 
@@ -699,18 +696,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       }
                                     },
                                   );
-
-                                  if (streaksAfter > streaksBefore) {
-                                    _isStreakWin = true;
-
-                                    _eventPlayer.stop();
-                                    _playEventSound('win_streak.mp3');
-                                  } else {
-                                    _isStreakWin = false;
-
-                                    _eventPlayer.stop();
-                                    _playEventSound('win_rasher.mp3');
-                                  }
+                                
                                 }
                                 // ✅ Winning chance triggered
                                 else if (updatedTurn != null &&
@@ -750,7 +736,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
                                     messages.add(friendly);
 
-                                    if (!_isStreakWin && !_isSuperStreakWin) {
+                                    if (!_isStreakWin || !_isSuperStreakWin) {
                                       if (friendly.startsWith('+1 POINT')) {
                                         _playEventSound('score_basic.mp3');
                                       } else if (friendly.startsWith('+2') ||
@@ -865,8 +851,6 @@ class _GameTestScreenState extends State<GameTestScreen> {
                               final pendingTypeBeforeRoll = turn.pendingD20Type;
                               final actingPlayer = controller.currentPlayer;
                               final rashersBefore = actingPlayer.rashersWon;
-                              final streaksBefore =
-                                  actingPlayer.streakyBaconCount;
 
                               await Future.delayed(
                                 const Duration(milliseconds: 1000),
@@ -888,8 +872,6 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 _lastD20 = d20;
 
                                 final rashersAfter = actingPlayer.rashersWon;
-                                final streaksAfter =
-                                    actingPlayer.streakyBaconCount;
                                 final wonRasherThisRoll =
                                     rashersAfter > rashersBefore;
 
@@ -994,19 +976,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       }
                                     },
                                   );
-
-                                  if (streaksAfter > streaksBefore) {
-                                    _isStreakWin = true; // ✅ ADD
-                                    _eventPlayer.stop();
-                                    _playEventSound(
-                                      'win_streak.mp3',
-                                    ); // ✅ updated sound
-                                  } else {
-                                    _isStreakWin = false; // ✅ ensure reset
-
-                                    _eventPlayer.stop();
-                                    _playEventSound('win_rasher.mp3');
-                                  }
+                                  
                                 }
                                 // ✅ STREAK DETECTION after D20 scoring (e.g. CLOSE....BUT NO CIGAR! +4)
                                 if (updatedTurn != null) {
