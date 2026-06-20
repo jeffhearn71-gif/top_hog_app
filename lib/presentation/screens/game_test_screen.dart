@@ -28,6 +28,13 @@ class _GameTestScreenState extends State<GameTestScreen> {
     controller = widget.controller;
   }
 
+  @override
+  void dispose() {
+    _rollPlayer.dispose();
+    _eventPlayer.dispose();
+    super.dispose();
+  }
+
   int? _lastD6A;
   int? _lastD6B;
   int? _lastD20;
@@ -104,7 +111,11 @@ class _GameTestScreenState extends State<GameTestScreen> {
     });
   }
 
-  String _friendlyOutcomeText(String outcomeLabel) {
+  String _friendlyOutcomeText(
+    String outcomeLabel, {
+    int? normalPointsAwarded,
+    int? trotterBonusAwarded,
+  }) {
     final lower = outcomeLabel.toLowerCase();
 
     // ✅ STANDARD POINT
@@ -112,30 +123,34 @@ class _GameTestScreenState extends State<GameTestScreen> {
       return '+1 POINT';
     }
 
-    // ✅ TROTTER CASES (progression logic)
-
+    // ✅ TROTTER CASES
     if (lower.contains('trotter')) {
-      // ✅ Winning chance (6,6)
+      // If actual awarded values are available, use them.
+      if (normalPointsAwarded != null && trotterBonusAwarded != null) {
+        final totalPoints = normalPointsAwarded + trotterBonusAwarded;
+
+        if (totalPoints == 2 && trotterBonusAwarded == 1) {
+          return '+2 POINTS (+1 Point, +1 Trotter)';
+        }
+
+        if (totalPoints == 3 && trotterBonusAwarded == 2) {
+          return '+3 POINTS (+1 Point, +2 Trotters)';
+        }
+
+        if (totalPoints == 4 && trotterBonusAwarded == 3) {
+          return '+4 POINTS (+1 Point, +3 Trotters)';
+        }
+      }
+
+      // Fallbacks if older/partial event data is ever encountered
       if (lower.contains('winning')) {
         return '+4 POINTS (+1 Point, +3 Trotters)';
       }
 
-      // ✅ Positive save (1,1)
-      if (lower.contains('positive')) {
+      if (lower.contains('positive') || lower.contains('save')) {
         return '+2 POINTS (+1 Point, +1 Trotter)';
       }
 
-      // ✅ Explicit low double (1,1 or 2,2)
-      if (lower.contains('trotter') && lower.contains('save')) {
-        return '+2 POINTS (+1 Point, +1 Trotter)';
-      }
-
-      // ✅ 3/4/5 trotters
-      if (lower.contains('3')) {
-        return '+3 POINTS (+1 Point, +2 Trotters)';
-      }
-
-      // fallback
       return '+3 POINTS (+1 Point, +2 Trotters)';
     }
 
@@ -167,7 +182,10 @@ class _GameTestScreenState extends State<GameTestScreen> {
     final lower = message.toLowerCase();
 
     // ✅ Glory (highest priority)
-    if (lower.contains('glory') || lower.contains('rasher')) {
+
+    if (lower.contains('glory') ||
+        lower.contains('rasher') ||
+        lower.contains('streak')) {
       return Colors.amber.shade700;
     }
 
@@ -206,6 +224,64 @@ class _GameTestScreenState extends State<GameTestScreen> {
     } catch (e) {
       debugPrint('Event sound error: $e');
     }
+  }
+
+  Future<void> _playSuperStreakSound() async {
+    try {
+      await _eventPlayer.stop();
+      await Future.delayed(const Duration(milliseconds: 40));
+      await _eventPlayer.play(AssetSource('sounds/win_super_streak.mp3'));
+    } catch (e) {
+      debugPrint('Super streak sound error: $e');
+    }
+  }
+
+  void _showPriorityOverlay({
+    required OverlayKind kind,
+    required Duration hideAfter,
+  }) {
+    switch (kind) {
+      case OverlayKind.superStreak:
+        controller.lastTriggeredEvent = 'superStreak';
+        _isSuperStreakWin = true;
+        _isStreakWin = false;
+        _isGloryWin = false;
+        break;
+
+      case OverlayKind.streak:
+        controller.lastTriggeredEvent = 'streak';
+        _isStreakWin = true;
+        _isSuperStreakWin = false;
+        _isGloryWin = false;
+        break;
+
+      default:
+        return;
+    }
+
+    _showRasherOverlay = false;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        _showRasherOverlay = true;
+      });
+
+      if (kind == OverlayKind.superStreak) {
+        _playSuperStreakSound();
+      } else if (kind == OverlayKind.streak) {
+        _playEventSound('win_streak.mp3');
+      }
+    });
+
+    Future.delayed(hideAfter, () {
+      if (!mounted) return;
+
+      setState(() {
+        _showRasherOverlay = false;
+      });
+    });
   }
 
   void _playGameWinIfNeeded() {
@@ -611,6 +687,9 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 const Duration(milliseconds: 1000),
                               );
 
+                              final turnBeforeRoll =
+                                  controller.state.currentTurn;
+
                               final result = controller.roll2d6();
 
                               setState(() {
@@ -618,24 +697,32 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 _lastD6B = result.second;
 
                                 final updatedTurn =
-                                    controller.state.currentTurn;
+                                    controller.state.currentTurn ??
+                                    turnBeforeRoll;
+
+                                final resolvedTurn =
+                                    turnBeforeRoll ?? updatedTurn;
+
                                 final rashersAfter = actingPlayer.rashersWon;
 
                                 final wonRasherThisRoll =
                                     rashersAfter > rashersBefore;
 
                                 List<String> messages = [];
+                                String? pendingScoreSound;
+                                bool triggeredStreakThisRoll = false;
+                                bool triggeredSuperStreakThisRoll = false;
 
                                 // ✅ Direct rasher win by ordinary scoring
                                 if (wonRasherThisRoll) {
+                                  final safeLastEvent =
+                                      (resolvedTurn != null &&
+                                          resolvedTurn.rollHistory.isNotEmpty)
+                                      ? resolvedTurn.rollHistory.last
+                                      : null;
+
                                   final safeLastOutcome =
-                                      (updatedTurn != null &&
-                                          updatedTurn.rollHistory.isNotEmpty)
-                                      ? updatedTurn
-                                            .rollHistory
-                                            .last
-                                            .outcomeLabel
-                                      : '';
+                                      safeLastEvent?.outcomeLabel ?? '';
 
                                   final outcomeLower = safeLastOutcome
                                       .toLowerCase();
@@ -646,19 +733,22 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       !outcomeLower.contains('winning')) {
                                     final friendly = _friendlyOutcomeText(
                                       safeLastOutcome,
+                                      normalPointsAwarded:
+                                          safeLastEvent?.normalPointsAwarded,
+                                      trotterBonusAwarded:
+                                          safeLastEvent?.trotterBonusAwarded,
                                     );
+
                                     messages.add(friendly);
 
-                                    if (!_isStreakWin && !_isSuperStreakWin) {
-                                      if (friendly.startsWith('+1 POINT')) {
-                                        _playEventSound('score_basic.mp3');
-                                      } else if (friendly.startsWith('+2') ||
-                                          friendly.startsWith('+3') ||
-                                          friendly.startsWith('+4')) {
-                                        _playEventSound('score_trotter.mp3');
-                                      } else if (friendly == 'BUST!') {
-                                        _playEventSound('bust.mp3');
-                                      }
+                                    if (friendly.startsWith('+1 POINT')) {
+                                      pendingScoreSound = 'score_basic.mp3';
+                                    } else if (friendly.startsWith('+2') ||
+                                        friendly.startsWith('+3') ||
+                                        friendly.startsWith('+4')) {
+                                      pendingScoreSound = 'score_trotter.mp3';
+                                    } else if (friendly == 'BUST!') {
+                                      pendingScoreSound = 'bust.mp3';
                                     }
                                   }
 
@@ -734,14 +824,14 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 }
                                 // ✅ Standard scoring outcome
                                 else {
+                                  final safeLastEvent =
+                                      (resolvedTurn != null &&
+                                          resolvedTurn.rollHistory.isNotEmpty)
+                                      ? resolvedTurn.rollHistory.last
+                                      : null;
+
                                   final safeLastOutcome =
-                                      (updatedTurn != null &&
-                                          updatedTurn.rollHistory.isNotEmpty)
-                                      ? updatedTurn
-                                            .rollHistory
-                                            .last
-                                            .outcomeLabel
-                                      : '';
+                                      safeLastEvent?.outcomeLabel ?? '';
 
                                   final outcomeLower = safeLastOutcome
                                       .toLowerCase();
@@ -752,6 +842,10 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       !outcomeLower.contains('winning')) {
                                     final friendly = _friendlyOutcomeText(
                                       safeLastOutcome,
+                                      normalPointsAwarded:
+                                          safeLastEvent?.normalPointsAwarded,
+                                      trotterBonusAwarded:
+                                          safeLastEvent?.trotterBonusAwarded,
                                     );
 
                                     messages.add(friendly);
@@ -775,85 +869,59 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       );
                                     }
 
-                                    if (!_isSuperStreakWin) {
-                                      if (friendly.startsWith('+1 POINT')) {
-                                        _playEventSound('score_basic.mp3');
-                                      } else if (friendly.startsWith('+2') ||
-                                          friendly.startsWith('+3') ||
-                                          friendly.startsWith('+4')) {
-                                        _playEventSound('score_trotter.mp3');
-                                      } else if (friendly == 'BUST!') {
-                                        _playEventSound('bust.mp3');
-                                      }
+                                    if (friendly.startsWith('+1 POINT')) {
+                                      pendingScoreSound = 'score_basic.mp3';
+                                    } else if (friendly.startsWith('+2') ||
+                                        friendly.startsWith('+3') ||
+                                        friendly.startsWith('+4')) {
+                                      pendingScoreSound = 'score_trotter.mp3';
+                                    } else if (friendly == 'BUST!') {
+                                      pendingScoreSound = 'bust.mp3';
                                     }
                                   }
                                 }
 
                                 // ✅ STREAK DETECTION (LIVE — Super can upgrade normal Streak)
-                                if (updatedTurn != null) {
+                                if (resolvedTurn != null) {
                                   // 🔥🔥 Super Streak (20+ gained this turn)
-                                  if (updatedTurn.hasSuperStreakThisTurn &&
+
+                                  if (resolvedTurn.hasSuperStreakThisTurn &&
                                       !_isSuperStreakWin) {
-                                    _isSuperStreakWin = true;
-                                    _isStreakWin = false;
-                                    controller.lastTriggeredEvent =
-                                        'superStreak';
-                                    _isGloryWin = false;
-                                    updatedTurn.pendingBankedSuperStreak = true;
+                                    resolvedTurn.pendingBankedSuperStreak =
+                                        true;
+                                    triggeredSuperStreakThisRoll = true;
 
-                                    // ✅ force a fresh super-streak overlay
-                                    _showRasherOverlay = false;
+                                    messages = ['SUPER STREAK!!!'];
 
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (mounted) {
-                                            setState(() {
-                                              _showRasherOverlay = true;
-                                            });
-
-                                            _eventPlayer.stop();
-
-                                            _playEventSound(
-                                              'win_super_streak.mp3',
-                                            );
-                                          }
-                                        });
-
-                                    Future.delayed(
-                                      const Duration(milliseconds: 1200),
-                                      () {
-                                        if (mounted) {
-                                          setState(() {
-                                            _showRasherOverlay = false;
-                                          });
-                                        }
-                                      },
+                                    _showPriorityOverlay(
+                                      kind: OverlayKind.superStreak,
+                                      hideAfter: const Duration(
+                                        milliseconds: 1200,
+                                      ),
                                     );
                                   }
                                   // 🔥 Normal Streak (10+ gained this turn)
-                                  else if (updatedTurn.hasStreakThisTurn &&
+                                  else if (resolvedTurn.hasStreakThisTurn &&
                                       !_isStreakWin &&
                                       !_isSuperStreakWin) {
-                                    _isStreakWin = true;
-                                    controller.lastTriggeredEvent = 'streak';
-                                    updatedTurn.pendingBankedStreak = true;
+                                    resolvedTurn.pendingBankedStreak = true;
+                                    triggeredStreakThisRoll = true;
 
-                                    _eventPlayer.stop();
-                                    _playEventSound('win_streak.mp3');
+                                    messages = ['STREAK!'];
 
-                                    _showRasherOverlay = true;
-
-                                    Future.delayed(
-                                      const Duration(milliseconds: 1200),
-                                      () {
-                                        if (mounted) {
-                                          setState(() {
-                                            _showRasherOverlay = false;
-                                          });
-                                        }
-                                      },
+                                    _showPriorityOverlay(
+                                      kind: OverlayKind.streak,
+                                      hideAfter: const Duration(
+                                        milliseconds: 1200,
+                                      ),
                                     );
                                   }
+                                }
+
+                                if (!triggeredSuperStreakThisRoll &&
+                                    !triggeredStreakThisRoll &&
+                                    pendingScoreSound != null) {
+                                  _playEventSound(pendingScoreSound);
                                 }
 
                                 _feedbackQueue = messages;
@@ -908,6 +976,10 @@ class _GameTestScreenState extends State<GameTestScreen> {
                               final actingPlayer = controller.currentPlayer;
                               final rashersBefore = actingPlayer.rashersWon;
 
+                              final pointsBeforeD20Resolution =
+                                  turn.normalPointsThisTurn +
+                                  turn.trotterBonusThisTurn;
+
                               await Future.delayed(
                                 const Duration(milliseconds: 1000),
                               );
@@ -933,216 +1005,216 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
                                 List<String> messages = [];
 
-                                // ✅ First: the D20-result-specific message + sound
+                                bool bustedOnD20 = false;
+                                bool survivedOnD20 = false;
+                                bool wonGlory = false;
+
+                                int pointsAwardedByD20Resolution = 0;
+
                                 switch (pendingTypeBeforeRoll) {
                                   case PendingD20Type.negativeSave:
-                                    final survived =
+                                    survivedOnD20 =
                                         (d20 == 4 || d20 == 11 || d20 == 20);
-
-                                    messages.add(survived ? 'SAVED!' : 'BUST!');
-
-                                    _playEventSound(
-                                      survived
-                                          ? 'save_pass.mp3'
-                                          : 'save_fail.mp3',
-                                    );
-
-                                    if (!survived) {
-                                      controller.lastTriggeredEvent = 'bust';
-
-                                      _showRasherOverlay = true;
-
-                                      Future.delayed(
-                                        const Duration(milliseconds: 1200),
-                                        () {
-                                          if (mounted) {
-                                            setState(() {
-                                              _showRasherOverlay = false;
-                                            });
-                                          }
-                                        },
-                                      );
-                                    }
-
+                                    bustedOnD20 = !survivedOnD20;
+                                    pointsAwardedByD20Resolution = 0;
                                     break;
 
                                   case PendingD20Type.positiveSave:
-                                    final busted =
+                                    bustedOnD20 =
                                         (d20 == 1 || d20 == 4 || d20 == 11);
-
-                                    messages.add(busted ? 'BUST!' : 'SAVED!');
-
-                                    _playEventSound(
-                                      busted
-                                          ? 'save_fail.mp3'
-                                          : 'save_pass.mp3',
-                                    );
-
-                                    if (busted) {
-                                      controller.lastTriggeredEvent = 'bust';
-
-                                      _showRasherOverlay = true;
-
-                                      Future.delayed(
-                                        const Duration(milliseconds: 1200),
-                                        () {
-                                          if (mounted) {
-                                            setState(() {
-                                              _showRasherOverlay = false;
-                                            });
-                                          }
-                                        },
-                                      );
-                                    }
-
+                                    survivedOnD20 = !bustedOnD20;
+                                    pointsAwardedByD20Resolution = survivedOnD20
+                                        ? 2
+                                        : 0;
                                     break;
 
                                   case PendingD20Type.winningChance:
-                                    final wonGlory = (d20 == 20);
-
-                                    messages.add(
-                                      wonGlory
-                                          ? 'RASHER WON!'
-                                          : 'CLOSE....BUT NO CIGAR!',
-                                    );
-
-                                    if (wonGlory) {
-                                      // ✅ STOP tension loop and play win sound
-                                      _isGloryWin = true;
-                                      _eventPlayer.stop();
-                                      _playEventSound('win_glory.mp3');
-                                    } else {
-                                      // ✅ interrupt tension loop with close call
-                                      _eventPlayer.stop();
-                                      _playEventSound('close_call.mp3');
-                                    }
+                                    wonGlory = (d20 == 20);
+                                    pointsAwardedByD20Resolution = 4;
                                     break;
 
                                   case PendingD20Type.none:
                                     break;
                                 }
 
-                                // ✅ Second: the scoring outcome, if player-facing
                                 final updatedTurn =
                                     controller.state.currentTurn;
-                                final safeLastOutcome =
+
+                                final safeLastEvent =
                                     (updatedTurn != null &&
                                         updatedTurn.rollHistory.isNotEmpty)
-                                    ? updatedTurn.rollHistory.last.outcomeLabel
-                                    : '';
+                                    ? updatedTurn.rollHistory.last
+                                    : null;
+
+                                final safeLastOutcome =
+                                    safeLastEvent?.outcomeLabel ?? '';
 
                                 final outcomeLower = safeLastOutcome
                                     .toLowerCase();
 
-                                if (safeLastOutcome.isNotEmpty &&
-                                    !outcomeLower.contains('save') &&
-                                    !outcomeLower.contains('saving') &&
-                                    !outcomeLower.contains('winning')) {
-                                  final friendly = _friendlyOutcomeText(
-                                    safeLastOutcome,
-                                  );
-                                  messages.add(friendly);
+                                final fallbackPointsAfterResolution =
+                                    pointsBeforeD20Resolution +
+                                    pointsAwardedByD20Resolution;
 
-                                  if (friendly.startsWith('+1 POINT')) {
-                                    _playEventSound('score_basic.mp3');
-                                  } else if (friendly.startsWith('+2') ||
-                                      friendly.startsWith('+3') ||
-                                      friendly.startsWith('+4')) {
-                                    _playEventSound('score_trotter.mp3');
-                                  } else if (friendly == 'BUST!') {
-                                    _playEventSound('bust.mp3');
-                                  }
-                                }
+                                final triggeredSuperStreak =
+                                    updatedTurn?.hasSuperStreakThisTurn ??
+                                    (fallbackPointsAfterResolution >= 20);
 
-                                // ✅ Third: if this D20 resolution awarded the rasher, always show it last
+                                final triggeredStreak =
+                                    !triggeredSuperStreak &&
+                                    (updatedTurn?.hasStreakThisTurn ??
+                                        (fallbackPointsAfterResolution >= 10));
 
-                                if (wonRasherThisRoll) {
-                                  messages.add('RASHER WON!');
-                                  controller.lastTriggeredEvent = 'rasher';
-                                  _isGloryWin = false;
-                                  _rankRevealPlayerId = actingPlayer.trueId;
-                                  _showRasherOverlay = true;
-
-                                  Future.delayed(
-                                    const Duration(milliseconds: 3000),
-                                    () {
-                                      if (mounted) {
-                                        setState(() {
-                                          _showRasherOverlay = false;
-                                        });
-                                      }
-                                    },
-                                  );
-                                }
-                                // ✅ STREAK DETECTION after D20 scoring (e.g. CLOSE....BUT NO CIGAR! +4)
-                                if (updatedTurn != null) {
-                                  // 🔥🔥 Super Streak (20+ gained this turn)
-
-                                  if (updatedTurn.hasSuperStreakThisTurn &&
-                                      !_isSuperStreakWin) {
-                                    _isSuperStreakWin = true;
-                                    _isStreakWin = false;
-                                    controller.lastTriggeredEvent =
-                                        'superStreak';
-                                    _isGloryWin = false;
+                                // ✅ PRIORITY 1: SUPER STREAK overrides everything
+                                if (triggeredSuperStreak &&
+                                    !_isSuperStreakWin) {
+                                  if (updatedTurn != null) {
                                     updatedTurn.pendingBankedSuperStreak = true;
+                                  }
 
-                                    // ✅ force a fresh super-streak overlay
-                                    _showRasherOverlay = false;
+                                  messages = ['SUPER STREAK!!!'];
 
-                                    WidgetsBinding.instance.addPostFrameCallback((
-                                      _,
-                                    ) {
-                                      if (mounted) {
-                                        setState(() {
-                                          _showRasherOverlay = true;
-                                        });
+                                  _showPriorityOverlay(
+                                    kind: OverlayKind.superStreak,
+                                    hideAfter: const Duration(
+                                      milliseconds: 1200,
+                                    ),
+                                  );
+                                }
+                                // ✅ PRIORITY 2: Normal streak overrides rasher/save UI
+                                else if (triggeredStreak &&
+                                    !_isStreakWin &&
+                                    !_isSuperStreakWin) {
+                                  if (updatedTurn != null) {
+                                    updatedTurn.pendingBankedStreak = true;
+                                  }
 
-                                        _eventPlayer.stop();
+                                  messages = ['STREAK!'];
+
+                                  _showPriorityOverlay(
+                                    kind: OverlayKind.streak,
+                                    hideAfter: const Duration(
+                                      milliseconds: 1200,
+                                    ),
+                                  );
+                                }
+                                // ✅ PRIORITY 3: standard D20 result handling
+                                else {
+                                  switch (pendingTypeBeforeRoll) {
+                                    case PendingD20Type.negativeSave:
+                                      messages.add(
+                                        survivedOnD20 ? 'SAVED!' : 'BUST!',
+                                      );
+
+                                      _playEventSound(
+                                        survivedOnD20
+                                            ? 'save_pass.mp3'
+                                            : 'save_fail.mp3',
+                                      );
+
+                                      if (!survivedOnD20) {
+                                        controller.lastTriggeredEvent = 'bust';
+
+                                        _showRasherOverlay = true;
 
                                         Future.delayed(
-                                          const Duration(milliseconds: 40),
-                                          () async {
-                                            try {
-                                              await _eventPlayer.stop();
-                                              await _eventPlayer.play(
-                                                AssetSource(
-                                                  'sounds/win_super_streak.mp3',
-                                                ),
-                                              );
-                                            } catch (e) {
-                                              debugPrint(
-                                                'Super streak sound error: $e',
-                                              );
+                                          const Duration(milliseconds: 1200),
+                                          () {
+                                            if (mounted) {
+                                              setState(() {
+                                                _showRasherOverlay = false;
+                                              });
                                             }
                                           },
                                         );
                                       }
-                                    });
+                                      break;
 
-                                    Future.delayed(
-                                      const Duration(milliseconds: 1200),
-                                      () {
-                                        if (mounted) {
-                                          setState(() {
-                                            _showRasherOverlay = false;
-                                          });
-                                        }
-                                      },
-                                    );
+                                    case PendingD20Type.positiveSave:
+                                      messages.add(
+                                        bustedOnD20
+                                            ? 'BUST!'
+                                            : 'SAVED! +2 POINTS (+1 Point, +1 Trotter)',
+                                      );
+
+                                      _playEventSound(
+                                        bustedOnD20
+                                            ? 'save_fail.mp3'
+                                            : 'save_pass.mp3',
+                                      );
+
+                                      if (bustedOnD20) {
+                                        controller.lastTriggeredEvent = 'bust';
+
+                                        _showRasherOverlay = true;
+
+                                        Future.delayed(
+                                          const Duration(milliseconds: 1200),
+                                          () {
+                                            if (mounted) {
+                                              setState(() {
+                                                _showRasherOverlay = false;
+                                              });
+                                            }
+                                          },
+                                        );
+                                      }
+                                      break;
+
+                                    case PendingD20Type.winningChance:
+                                      messages.add(
+                                        wonGlory
+                                            ? 'RASHER WON!'
+                                            : 'CLOSE....BUT NO CIGAR!',
+                                      );
+
+                                      if (wonGlory) {
+                                        _isGloryWin = true;
+                                        _eventPlayer.stop();
+                                        _playEventSound('win_glory.mp3');
+                                      } else {
+                                        _eventPlayer.stop();
+                                        _playEventSound('close_call.mp3');
+                                      }
+                                      break;
+
+                                    case PendingD20Type.none:
+                                      break;
                                   }
-                                  // 🔥 Normal Streak (10+ gained this turn)
-                                  else if (updatedTurn.hasStreakThisTurn &&
-                                      !_isStreakWin &&
-                                      !_isSuperStreakWin) {
-                                    _isStreakWin = true;
 
-                                    _eventPlayer.stop();
-                                    _playEventSound('win_streak.mp3');
+                                  if (safeLastOutcome.isNotEmpty &&
+                                      !outcomeLower.contains('save') &&
+                                      !outcomeLower.contains('saving') &&
+                                      !outcomeLower.contains('winning')) {
+                                    final friendly = _friendlyOutcomeText(
+                                      safeLastOutcome,
+                                      normalPointsAwarded:
+                                          safeLastEvent?.normalPointsAwarded,
+                                      trotterBonusAwarded:
+                                          safeLastEvent?.trotterBonusAwarded,
+                                    );
+                                    messages.add(friendly);
 
+                                    if (friendly.startsWith('+1 POINT')) {
+                                      _playEventSound('score_basic.mp3');
+                                    } else if (friendly.startsWith('+2') ||
+                                        friendly.startsWith('+3') ||
+                                        friendly.startsWith('+4')) {
+                                      _playEventSound('score_trotter.mp3');
+                                    } else if (friendly == 'BUST!') {
+                                      _playEventSound('bust.mp3');
+                                    }
+                                  }
+
+                                  if (wonRasherThisRoll) {
+                                    messages.add('RASHER WON!');
+                                    controller.lastTriggeredEvent = 'rasher';
+                                    _isGloryWin = false;
+                                    _rankRevealPlayerId = actingPlayer.trueId;
                                     _showRasherOverlay = true;
+
                                     Future.delayed(
-                                      const Duration(milliseconds: 1200),
+                                      const Duration(milliseconds: 3000),
                                       () {
                                         if (mounted) {
                                           setState(() {
