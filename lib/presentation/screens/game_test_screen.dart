@@ -487,10 +487,10 @@ class _GameTestScreenState extends State<GameTestScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 5,
+                          crossAxisCount: 10,
                           mainAxisSpacing: 4,
                           crossAxisSpacing: 4,
-                          childAspectRatio: 1.3,
+                          childAspectRatio: 0.9,
                         ),
                     itemCount: 20,
                     itemBuilder: (context, index) {
@@ -507,8 +507,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                             opacity: 0.15,
                             child: SvgPicture.asset(
                               'assets/icons/pig.svg',
-                              width: 76,
-                              height: 76,
+                              width: 52,
+                              height: 52,
                             ),
                           ),
                         );
@@ -527,8 +527,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                             ),
                             child: SvgPicture.asset(
                               'assets/icons/pig.svg',
-                              width: 76,
-                              height: 76,
+                              width: 52,
+                              height: 52,
                             ),
                           ),
                         );
@@ -538,8 +538,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                       return Center(
                         child: SvgPicture.asset(
                           'assets/icons/pig.svg',
-                          width: 76,
-                          height: 76,
+                          width: 52,
+                          height: 52,
                         ),
                       );
                     },
@@ -858,7 +858,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       _showRasherOverlay = true;
 
                                       Future.delayed(
-                                        const Duration(milliseconds: 1200),
+                                        const Duration(milliseconds: 1800),
                                         () {
                                           if (mounted) {
                                             setState(() {
@@ -912,7 +912,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                     _showPriorityOverlay(
                                       kind: OverlayKind.streak,
                                       hideAfter: const Duration(
-                                        milliseconds: 1200,
+                                        milliseconds: 2200,
                                       ),
                                     );
                                   }
@@ -1077,7 +1077,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                   _showPriorityOverlay(
                                     kind: OverlayKind.superStreak,
                                     hideAfter: const Duration(
-                                      milliseconds: 1200,
+                                      milliseconds: 3000,
                                     ),
                                   );
                                 }
@@ -1118,7 +1118,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                         _showRasherOverlay = true;
 
                                         Future.delayed(
-                                          const Duration(milliseconds: 1200),
+                                          const Duration(milliseconds: 1800),
                                           () {
                                             if (mounted) {
                                               setState(() {
@@ -1149,7 +1149,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                         _showRasherOverlay = true;
 
                                         Future.delayed(
-                                          const Duration(milliseconds: 1200),
+                                          const Duration(milliseconds: 1800),
                                           () {
                                             if (mounted) {
                                               setState(() {
@@ -1310,7 +1310,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
           // ✅ MAIN EVENT OVERLAY
           if (_currentOverlayKind() != OverlayKind.none &&
               _currentOverlayKind() != OverlayKind.gameWin)
-            Center(
+            Align(
+              alignment: const Alignment(0, -0.35),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

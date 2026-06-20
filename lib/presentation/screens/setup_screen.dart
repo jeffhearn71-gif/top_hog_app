@@ -86,141 +86,143 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Top Hog')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Text(
-              'Game Setup',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              const Text(
+                'Game Setup',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
-            Image.asset('assets/icons/app_icon.png', height: 120),
+              Image.asset('assets/icons/app_icon.png', height: 120),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
-            // Player count
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [2, 3, 4].map((count) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      _playEventSound('button_click.mp3');
-
-                      setState(() {
-                        playerCount = count;
-
-                        // Reset play order to a valid default for the selected player count
-                        playOrder = List.generate(count, (index) => index);
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: playerCount == count
-                          ? Colors.orange
-                          : Colors.grey,
-                    ),
-                    child: Text('$count Players'),
-                  ),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Name inputs
-            Column(
-              children: List.generate(playerCount, (index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: TextField(
-                    controller: controllers[index],
-                    decoration: InputDecoration(
-                      labelText: 'Player ${index + 1}',
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                );
-              }),
-            ),
-
-            const SizedBox(height: 16),
-
-            const Text(
-              'Choose Playing Order',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-
-            Column(
-              children: List.generate(playerCount, (position) {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${position + 1}${_suffix(position + 1)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-
-                    DropdownButton<int>(
-                      value: playOrder[position],
-                      items: List.generate(playerCount, (playerIndex) {
-                        return DropdownMenuItem<int>(
-                          value: playerIndex,
-                          child: Text(
-                            controllers[playerIndex].text.isEmpty
-                                ? 'Player ${playerIndex + 1}'
-                                : controllers[playerIndex].text,
-                          ),
-                        );
-                      }),
-                      onChanged: (value) {
-                        if (value == null) return;
+              // Player count
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [2, 3, 4].map((count) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        _playEventSound('button_click.mp3');
 
                         setState(() {
-                          final otherIndex = playOrder.indexOf(value);
+                          playerCount = count;
 
-                          // If this player is already selected elsewhere → swap
-                          if (otherIndex != -1 && otherIndex != position) {
-                            final temp = playOrder[position];
-                            playOrder[position] = value;
-                            playOrder[otherIndex] = temp;
-                          } else {
-                            playOrder[position] = value;
-                          }
+                          playOrder = List.generate(count, (index) => index);
                         });
                       },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: playerCount == count
+                            ? Colors.orange
+                            : Colors.grey,
+                      ),
+                      child: Text('$count Players'),
                     ),
-                  ],
-                );
-              }),
-            ),
-
-            const Spacer(),
-
-            // Start button
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                minimumSize: const Size.fromHeight(60),
-                elevation: 10,
+                  );
+                }).toList(),
               ),
-              onPressed: () {
-                _playEventSound('start_button.mp3');
-                _startGame();
-              },
-              child: const Text(
-                'START GAME',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+
+              const SizedBox(height: 16),
+
+              // Name inputs
+              Column(
+                children: List.generate(playerCount, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: TextField(
+                      controller: controllers[index],
+                      decoration: InputDecoration(
+                        labelText: 'Player ${index + 1}',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+              const SizedBox(height: 16),
+
+              const Text(
+                'Choose Playing Order',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+
+              Column(
+                children: List.generate(playerCount, (position) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${position + 1}${_suffix(position + 1)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+
+                      DropdownButton<int>(
+                        value: playOrder[position],
+                        items: List.generate(playerCount, (playerIndex) {
+                          return DropdownMenuItem<int>(
+                            value: playerIndex,
+                            child: Text(
+                              controllers[playerIndex].text.isEmpty
+                                  ? 'Player ${playerIndex + 1}'
+                                  : controllers[playerIndex].text,
+                            ),
+                          );
+                        }),
+                        onChanged: (value) {
+                          if (value == null) return;
+
+                          setState(() {
+                            final otherIndex = playOrder.indexOf(value);
+
+                            if (otherIndex != -1 && otherIndex != position) {
+                              final temp = playOrder[position];
+                              playOrder[position] = value;
+                              playOrder[otherIndex] = temp;
+                            } else {
+                              playOrder[position] = value;
+                            }
+                          });
+                        },
+                      ),
+                    ],
+                  );
+                }),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Start button
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  minimumSize: const Size.fromHeight(60),
+                  elevation: 10,
+                ),
+                onPressed: () {
+                  _playEventSound('start_button.mp3');
+                  _startGame();
+                },
+                child: const Text(
+                  'START GAME',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
