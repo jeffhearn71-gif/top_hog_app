@@ -507,8 +507,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                             opacity: 0.15,
                             child: SvgPicture.asset(
                               'assets/icons/pig.svg',
-                              width: 76,
-                              height: 76,
+                              width: 72,
+                              height: 72,
                             ),
                           ),
                         );
@@ -527,8 +527,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                             ),
                             child: SvgPicture.asset(
                               'assets/icons/pig.svg',
-                              width: 76,
-                              height: 76,
+                              width: 72,
+                              height: 72,
                             ),
                           ),
                         );
@@ -538,8 +538,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                       return Center(
                         child: SvgPicture.asset(
                           'assets/icons/pig.svg',
-                          width: 76,
-                          height: 76,
+                          width: 72,
+                          height: 72,
                         ),
                       );
                     },
@@ -896,7 +896,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                     _showPriorityOverlay(
                                       kind: OverlayKind.superStreak,
                                       hideAfter: const Duration(
-                                        milliseconds: 1200,
+                                        milliseconds: 3000,
                                       ),
                                     );
                                   }
