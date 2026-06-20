@@ -86,10 +86,10 @@ class _GameTestScreenState extends State<GameTestScreen> {
   String _getD20Instruction(TurnState turn) {
     switch (turn.pendingD20Type) {
       case PendingD20Type.positiveSave:
-        return 'SAVING THROW: If you roll a 1, 4 or 11 you BUST';
+        return 'If you roll a 1, 4 or 11 you BUST';
 
       case PendingD20Type.negativeSave:
-        return 'SAVING THROW: Roll a 4, 11 or 20 to SURVIVE';
+        return 'Roll a 4, 11 or 20 to SURVIVE';
 
       case PendingD20Type.winningChance:
         return 'Roll a 20 to win a RASHER!';
