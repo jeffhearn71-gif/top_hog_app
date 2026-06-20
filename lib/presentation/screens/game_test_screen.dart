@@ -322,7 +322,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFE3F2FD), // ✅ pale blue
-      appBar: AppBar(title: const Text('Top Hog Test Screen')),
+      appBar: AppBar(title: const Text('Top Hog')),
       body: Stack(
         children: [
           Padding(
@@ -487,10 +487,10 @@ class _GameTestScreenState extends State<GameTestScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 10,
+                          crossAxisCount: 5,
                           mainAxisSpacing: 4,
                           crossAxisSpacing: 4,
-                          childAspectRatio: 0.9,
+                          childAspectRatio: 1.3,
                         ),
                     itemCount: 20,
                     itemBuilder: (context, index) {
@@ -507,8 +507,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                             opacity: 0.15,
                             child: SvgPicture.asset(
                               'assets/icons/pig.svg',
-                              width: 52,
-                              height: 52,
+                              width: 76,
+                              height: 76,
                             ),
                           ),
                         );
@@ -527,8 +527,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                             ),
                             child: SvgPicture.asset(
                               'assets/icons/pig.svg',
-                              width: 52,
-                              height: 52,
+                              width: 76,
+                              height: 76,
                             ),
                           ),
                         );
@@ -538,8 +538,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                       return Center(
                         child: SvgPicture.asset(
                           'assets/icons/pig.svg',
-                          width: 52,
-                          height: 52,
+                          width: 76,
+                          height: 76,
                         ),
                       );
                     },
@@ -1311,7 +1311,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
           if (_currentOverlayKind() != OverlayKind.none &&
               _currentOverlayKind() != OverlayKind.gameWin)
             Align(
-              alignment: const Alignment(0, -0.35),
+              alignment: const Alignment(0, -0.15),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
