@@ -16,7 +16,16 @@ class GameTestScreen extends StatefulWidget {
   State<GameTestScreen> createState() => _GameTestScreenState();
 }
 
-enum OverlayKind { none, rasher, streak, superStreak, glory, bust, gameWin }
+enum OverlayKind {
+  none,
+  rasher,
+  streak,
+  superStreak,
+  glory,
+  bust,
+  save,
+  gameWin,
+}
 
 class _GameTestScreenState extends State<GameTestScreen> {
   late final GameController controller;
@@ -76,6 +85,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
         return OverlayKind.glory;
       case 'bust':
         return OverlayKind.bust;
+      case 'save':
+        return OverlayKind.save;
       case 'rasher':
         return OverlayKind.rasher;
       default:
@@ -490,7 +501,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                           crossAxisCount: 5,
                           mainAxisSpacing: 4,
                           crossAxisSpacing: 4,
-                          childAspectRatio: 1.3,
+                          childAspectRatio: 1.45,
                         ),
                     itemCount: 20,
                     itemBuilder: (context, index) {
@@ -507,8 +518,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                             opacity: 0.15,
                             child: SvgPicture.asset(
                               'assets/icons/pig.svg',
-                              width: 72,
-                              height: 72,
+                              width: 68,
+                              height: 68,
                             ),
                           ),
                         );
@@ -527,8 +538,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                             ),
                             child: SvgPicture.asset(
                               'assets/icons/pig.svg',
-                              width: 72,
-                              height: 72,
+                              width: 68,
+                              height: 68,
                             ),
                           ),
                         );
@@ -538,8 +549,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                       return Center(
                         child: SvgPicture.asset(
                           'assets/icons/pig.svg',
-                          width: 72,
-                          height: 72,
+                          width: 68,
+                          height: 68,
                         ),
                       );
                     },
@@ -1094,7 +1105,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                   _showPriorityOverlay(
                                     kind: OverlayKind.streak,
                                     hideAfter: const Duration(
-                                      milliseconds: 1200,
+                                      milliseconds: 1500,
                                     ),
                                   );
                                 }
@@ -1112,13 +1123,28 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                             : 'save_fail.mp3',
                                       );
 
-                                      if (!survivedOnD20) {
+                                      if (survivedOnD20) {
+                                        controller.lastTriggeredEvent = 'save';
+
+                                        _showRasherOverlay = true;
+
+                                        Future.delayed(
+                                          const Duration(milliseconds: 1500),
+                                          () {
+                                            if (mounted) {
+                                              setState(() {
+                                                _showRasherOverlay = false;
+                                              });
+                                            }
+                                          },
+                                        );
+                                      } else {
                                         controller.lastTriggeredEvent = 'bust';
 
                                         _showRasherOverlay = true;
 
                                         Future.delayed(
-                                          const Duration(milliseconds: 1800),
+                                          const Duration(milliseconds: 1500),
                                           () {
                                             if (mounted) {
                                               setState(() {
@@ -1134,7 +1160,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                       messages.add(
                                         bustedOnD20
                                             ? 'BUST!'
-                                            : 'SAVED! +2 POINTS (+1 Point, +1 Trotter)',
+                                            : '+2 POINTS (+1 Point, +1 Trotter)',
                                       );
 
                                       _playEventSound(
@@ -1149,7 +1175,22 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                         _showRasherOverlay = true;
 
                                         Future.delayed(
-                                          const Duration(milliseconds: 1800),
+                                          const Duration(milliseconds: 1500),
+                                          () {
+                                            if (mounted) {
+                                              setState(() {
+                                                _showRasherOverlay = false;
+                                              });
+                                            }
+                                          },
+                                        );
+                                      } else {
+                                        controller.lastTriggeredEvent = 'save';
+
+                                        _showRasherOverlay = true;
+
+                                        Future.delayed(
+                                          const Duration(milliseconds: 1500),
                                           () {
                                             if (mounted) {
                                               setState(() {
@@ -1159,6 +1200,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                           },
                                         );
                                       }
+
                                       break;
 
                                     case PendingD20Type.winningChance:
@@ -1318,6 +1360,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                   SvgPicture.asset(
                     _currentOverlayKind() == OverlayKind.bust
                         ? 'assets/icons/broken_heart.svg'
+                        : _currentOverlayKind() == OverlayKind.save
+                        ? 'assets/icons/shield.svg'
                         : _currentOverlayKind() == OverlayKind.superStreak
                         ? 'assets/icons/exploding_head.svg'
                         : _currentOverlayKind() == OverlayKind.streak
@@ -1340,6 +1384,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                   Text(
                     _currentOverlayKind() == OverlayKind.bust
                         ? 'BUST!'
+                        : _currentOverlayKind() == OverlayKind.save
+                        ? 'SAVED!'
                         : _currentOverlayKind() == OverlayKind.superStreak
                         ? 'SUPER STREAK!!!'
                         : _currentOverlayKind() == OverlayKind.streak
@@ -1359,6 +1405,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
                       fontWeight: FontWeight.bold,
                       color: _currentOverlayKind() == OverlayKind.glory
                           ? Colors.amber
+                          : _currentOverlayKind() == OverlayKind.save
+                          ? Colors.green
                           : Colors.orange,
                     ),
                   ),
