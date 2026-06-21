@@ -42,6 +42,25 @@ class MatchSummaryScreen extends StatelessWidget {
     }
   }
 
+  Color? _getPlacementColor(int index) {
+    switch (index) {
+      case 0:
+        return Colors.amber.shade100; // Gold
+
+      case 1:
+        return Colors.blueGrey.shade100; // Silver
+
+      case 2:
+        return Colors.orange.shade100; // Bronze
+
+      case 3:
+        return Colors.brown.shade100; // Brown
+
+      default:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final sortedPlayers = [...players];
@@ -56,11 +75,7 @@ class MatchSummaryScreen extends StatelessWidget {
           final p = entry.value;
 
           return Card(
-            color: index == 0
-                ? Colors
-                      .amber
-                      .shade100 // ✅ winner highlight
-                : null,
+            color: _getPlacementColor(index),
             margin: const EdgeInsets.symmetric(vertical: 6),
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -183,7 +198,7 @@ class MatchSummaryScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   RichText(
                     text: TextSpan(
                       style: const TextStyle(fontSize: 14, color: Colors.black),
