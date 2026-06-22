@@ -479,15 +479,6 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  void _moveToFirstEligiblePlayer() {
-    for (int i = 0; i < state.players.length; i++) {
-      if (!state.players[i].hasWonCurrentSet) {
-        state.activePlayerIndex = i;
-        return;
-      }
-    }
-  }
-
   void _checkRoundCompletion() {
     final eligiblePlayers = state.players
         .where((player) => !player.hasWonCurrentSet)

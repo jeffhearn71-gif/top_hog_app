@@ -331,6 +331,10 @@ class _GameTestScreenState extends State<GameTestScreen> {
     final turn = controller.state.currentTurn;
     final phase = controller.state.phase;
 
+    final podiumPlayers = [...controller.state.players];
+
+    podiumPlayers.sort((a, b) => b.rashersWon.compareTo(a.rashersWon));
+
     return Scaffold(
       backgroundColor: const Color(0xFFE3F2FD), // ✅ pale blue
       appBar: AppBar(title: const Text('Top Hog')),
@@ -1349,6 +1353,16 @@ class _GameTestScreenState extends State<GameTestScreen> {
                         ],
                       ),
                     ),
+
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _showGameWinOverlay = true;
+                          controller.state.phase = GamePhase.gameEnded;
+                        });
+                      },
+                      child: const Text('TEST PODIUM'),
+                    ),
                   ],
                 ),
 
@@ -1419,6 +1433,130 @@ class _GameTestScreenState extends State<GameTestScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+
+          // ✅ GAME WIN OVERLAY (Podium V0)
+          if (_currentOverlayKind() == OverlayKind.gameWin)
+            Center(
+              child: SizedBox(
+                width: 350,
+                height: 400,
+                child: Stack(
+                  children: [
+                    Center(
+                      child: SvgPicture.asset(
+                        'assets/icons/podium.svg',
+                        height: 300,
+                      ),
+                    ),
+
+                    // 🥇 GOLD RANK ICON
+                    Positioned(
+                      top: 20,
+                      left: 149,
+                      child: podiumPlayers.isNotEmpty
+                          ? SvgPicture.asset(
+                              rankAssets[podiumPlayers[0].rashersWon.clamp(
+                                0,
+                                5,
+                              )],
+                              height: 52,
+                            )
+                          : const SizedBox(),
+                    ),
+
+                    // 🥇 GOLD NAME
+                    Positioned(
+                      top: 80,
+                      left: 125,
+                      child: SizedBox(
+                        width: 100,
+                        child: Text(
+                          podiumPlayers.isNotEmpty
+                              ? podiumPlayers[0].alias
+                              : '',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // 🥈 SILVER RANK ICON
+                    Positioned(
+                      top: 75,
+                      left: 47,
+                      child: podiumPlayers.length > 1
+                          ? SvgPicture.asset(
+                              rankAssets[podiumPlayers[1].rashersWon.clamp(
+                                0,
+                                5,
+                              )],
+                              height: 52,
+                            )
+                          : const SizedBox(),
+                    ),
+
+                    // 🥈 SILVER NAME
+                    Positioned(
+                      top: 135,
+                      left: 23,
+                      child: SizedBox(
+                        width: 100,
+                        child: Text(
+                          podiumPlayers.length > 1
+                              ? podiumPlayers[1].alias
+                              : '',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // 🥉 BRONZE RANK ICON
+                    Positioned(
+                      top: 90,
+                      right: 47,
+                      child: podiumPlayers.length > 2
+                          ? SvgPicture.asset(
+                              rankAssets[podiumPlayers[2].rashersWon.clamp(
+                                0,
+                                5,
+                              )],
+                              height: 52,
+                            )
+                          : const SizedBox(),
+                    ),
+
+                    // 🥉 BRONZE NAME
+                    Positioned(
+                      top: 150,
+                      right: 23,
+                      child: SizedBox(
+                        width: 100,
+                        child: Text(
+                          podiumPlayers.length > 2
+                              ? podiumPlayers[2].alias
+                              : '',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.brown,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
