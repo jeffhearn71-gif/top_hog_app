@@ -295,32 +295,16 @@ class _GameTestScreenState extends State<GameTestScreen> {
     });
   }
 
-  void _playGameWinIfNeeded() {
-    if (controller.state.isGameComplete) {
-      _playEventSound('win_game.mp3');
-    }
-  }
-
   void _checkForGameEnd() {
     if (controller.state.isGameComplete && !_showGameWinOverlay) {
-      _showGameWinOverlay = true;
+      Future.delayed(const Duration(milliseconds: 5000), () {
+        if (!mounted) return;
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {});
-        }
-      });
+        setState(() {
+          _showGameWinOverlay = true;
+        });
 
-      Future.delayed(const Duration(milliseconds: 3500), () {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  MatchSummaryScreen(players: controller.state.players),
-            ),
-          );
-        }
+        _playEventSound('win_game.mp3');
       });
     }
   }
@@ -947,7 +931,6 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 }
 
                                 _feedbackQueue = messages;
-                                _playGameWinIfNeeded();
                                 _playFeedbackQueue();
                               });
                             }
@@ -1281,7 +1264,6 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                 }
 
                                 _feedbackQueue = messages;
-                                _playGameWinIfNeeded();
                                 _playFeedbackQueue();
                               });
                             }
@@ -1352,16 +1334,6 @@ class _GameTestScreenState extends State<GameTestScreen> {
                           ),
                         ],
                       ),
-                    ),
-
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _showGameWinOverlay = true;
-                          controller.state.phase = GamePhase.gameEnded;
-                        });
-                      },
-                      child: const Text('TEST PODIUM'),
                     ),
                   ],
                 ),
@@ -1435,6 +1407,10 @@ class _GameTestScreenState extends State<GameTestScreen> {
                 ],
               ),
             ),
+
+          // ✅ GAME WIN BACKDROP
+          if (_currentOverlayKind() == OverlayKind.gameWin)
+            Positioned.fill(child: Container(color: const Color(0xFFE3F2FD))),
 
           // ✅ GAME WIN OVERLAY (Podium V0)
           if (_currentOverlayKind() == OverlayKind.gameWin)
@@ -1551,6 +1527,76 @@ class _GameTestScreenState extends State<GameTestScreen> {
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.brown,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // 💩 FOURTH PLACE
+                    Positioned(
+                      bottom: 55,
+                      left: 100,
+                      child: SizedBox(
+                        width: 150,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('💩', style: TextStyle(fontSize: 24)),
+
+                            const SizedBox(width: 6),
+
+                            if (podiumPlayers.length > 3)
+                              Text(
+                                podiumPlayers[3].alias,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.brown,
+                                ),
+                              ),
+
+                            const SizedBox(width: 6),
+
+                            if (podiumPlayers.length > 3)
+                              SvgPicture.asset(
+                                rankAssets[podiumPlayers[3].rashersWon.clamp(
+                                  0,
+                                  5,
+                                )],
+                                height: 36,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ✅ MATCH SUMMARY BUTTON
+                    Positioned(
+                      bottom: 10,
+                      left: 75,
+                      child: SizedBox(
+                        width: 200,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                          ),
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MatchSummaryScreen(
+                                  players: controller.state.players,
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Match Summary',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
                           ),
                         ),
                       ),
