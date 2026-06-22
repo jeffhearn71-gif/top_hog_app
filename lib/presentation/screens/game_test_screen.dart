@@ -62,15 +62,15 @@ class _GameTestScreenState extends State<GameTestScreen> {
   final AudioPlayer _eventPlayer = AudioPlayer();
 
   final rankAssets = [
-    'assets/icons/rank0_oinker.svg',
-    'assets/icons/rank1_piglet.svg',
+    'assets/icons/rank0_piglet.svg',
+    'assets/icons/rank1_oinker.svg',
     'assets/icons/rank2_porker.svg',
     'assets/icons/rank3_boar.svg',
     'assets/icons/rank4_hog.svg',
     'assets/icons/rank5_top_hog.svg',
   ];
 
-  final rankLabels = ['Oinker', 'Piglet', 'Porker', 'Boar', 'Hog', 'Top Hog'];
+  final rankLabels = ['Piglet', 'Oinker', 'Porker', 'Boar', 'Hog', 'Top Hog'];
 
   OverlayKind _currentOverlayKind() {
     if (_showGameWinOverlay) return OverlayKind.gameWin;

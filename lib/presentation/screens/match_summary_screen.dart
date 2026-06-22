@@ -8,7 +8,7 @@ class MatchSummaryScreen extends StatelessWidget {
   const MatchSummaryScreen({super.key, required this.players});
 
   String _getRankName(int rashers) {
-    const ranks = ['Oinker', 'Piglet', 'Porker', 'Boar', 'Hog', 'Top Hog'];
+    const ranks = ['Piglet', 'Oinker', 'Porker', 'Boar', 'Hog', 'Top Hog'];
     return ranks[rashers.clamp(0, 5)];
   }
 
@@ -16,8 +16,8 @@ class MatchSummaryScreen extends StatelessWidget {
     final index = rashers.clamp(0, 5);
 
     const assets = [
-      'assets/icons/rank0_oinker.svg',
-      'assets/icons/rank1_piglet.svg',
+      'assets/icons/rank0_piglet.svg',
+      'assets/icons/rank1_oinker.svg',
       'assets/icons/rank2_porker.svg',
       'assets/icons/rank3_boar.svg',
       'assets/icons/rank4_hog.svg',
