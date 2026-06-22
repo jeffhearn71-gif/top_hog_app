@@ -721,6 +721,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
                                 List<String> messages = [];
                                 String? pendingScoreSound;
+                                bool triggeredRasherThisRoll = false;
                                 bool triggeredStreakThisRoll = false;
                                 bool triggeredSuperStreakThisRoll = false;
 
@@ -765,6 +766,8 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
                                   messages.add('RASHER WON!');
 
+                                  controller.lastTriggeredEvent = 'rasher';
+                                  triggeredRasherThisRoll = true;
                                   _isGloryWin = false;
                                   _showNewRank = false; // ✅ hide rank initially
                                   _rankRevealPlayerId = actingPlayer.trueId;
@@ -929,9 +932,13 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                   }
                                 }
 
-                                if (!triggeredSuperStreakThisRoll &&
-                                    !triggeredStreakThisRoll &&
-                                    pendingScoreSound != null) {
+                                if (triggeredSuperStreakThisRoll) {
+                                  // Super Streak sound already handled by overlay priority path
+                                } else if (triggeredStreakThisRoll) {
+                                  // Streak sound already handled by overlay priority path
+                                } else if (triggeredRasherThisRoll) {
+                                  _playEventSound('win_rasher.mp3');
+                                } else if (pendingScoreSound != null) {
                                   _playEventSound(pendingScoreSound);
                                 }
 
@@ -1251,6 +1258,7 @@ class _GameTestScreenState extends State<GameTestScreen> {
                                   if (wonRasherThisRoll) {
                                     messages.add('RASHER WON!');
                                     controller.lastTriggeredEvent = 'rasher';
+                                    _playEventSound('win_rasher.mp3');
                                     _isGloryWin = false;
                                     _rankRevealPlayerId = actingPlayer.trueId;
                                     _showRasherOverlay = true;

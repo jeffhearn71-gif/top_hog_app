@@ -519,7 +519,6 @@ class GameController extends ChangeNotifier {
     state.currentSet.roundNumber += 1;
     state.currentSet.playersTakenTurnThisRound.clear();
 
-    _moveToFirstEligiblePlayer();
     startTurn();
   }
 }
