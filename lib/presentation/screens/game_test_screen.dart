@@ -297,14 +297,14 @@ class _GameTestScreenState extends State<GameTestScreen> {
 
   void _checkForGameEnd() {
     if (controller.state.isGameComplete && !_showGameWinOverlay) {
-      Future.delayed(const Duration(milliseconds: 5000), () {
+      _playEventSound('win_game.mp3');
+
+      Future.delayed(const Duration(milliseconds: 2500), () {
         if (!mounted) return;
 
         setState(() {
           _showGameWinOverlay = true;
         });
-
-        _playEventSound('win_game.mp3');
       });
     }
   }
